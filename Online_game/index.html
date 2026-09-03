@@ -85,16 +85,19 @@
         let roomKey = "";      
         let loopInterval = null;
 
+        // 1. 部屋を作る（プレイヤー1になる）
         async function createRoom() {
             const pass = document.getElementById("roomPass").value;
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
+            
             roomKey = encodeURIComponent(pass);
+            const fullUrl = dbUrl + roomKey;
+            
             myRole = "p1";
-
-            document.getElementById("status").innerText = "部屋を作って相手を待っています...";
+            document.getElementById("status").innerText = "部屋を作して相手を待っています...";
             
             const startData = { p1: 0, p2: 0, status: "waiting" };
-            await fetch(dbUrl + roomKey, {
+            await fetch(fullUrl, {
                 method: "POST",
                 body: JSON.stringify(startData)
             });
@@ -103,9 +106,11 @@
             loopInterval = setInterval(checkRivalJoin, 1000);
         }
 
+        // プレイヤー1専用：プレイヤー2が来たか見張る
         async function checkRivalJoin() {
             try {
-                const res = await fetch(dbUrl + roomKey);
+                const fullUrl = dbUrl + roomKey;
+                const res = await fetch(fullUrl);
                 if(!res.ok) return; 
                 const data = await res.json();
                 
@@ -116,20 +121,23 @@
             } catch(e) { console.log(e); }
         }
 
+        // 2. 部屋に入る（プレイヤー2になる）
         async function joinRoom() {
             const pass = document.getElementById("roomPass").value;
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
+            
             roomKey = encodeURIComponent(pass);
+            const fullUrl = dbUrl + roomKey;
             myRole = "p2";
 
             document.getElementById("status").innerText = "部屋を探して入っています...";
 
             try {
-                const res = await fetch(dbUrl + roomKey);
+                const res = await fetch(fullUrl);
                 
                 if(!res.ok) {
                     const startData = { p1: 0, p2: 0, status: "playing" };
-                    await fetch(dbUrl + roomKey, { method: "POST", body: JSON.stringify(startData) });
+                    await fetch(fullUrl, { method: "POST", body: JSON.stringify(startData) });
                     startGame();
                     return;
                 }
@@ -137,7 +145,7 @@
                 const data = await res.json();
                 if(data.status === "waiting" || data.status === "playing") {
                     data.status = "playing";
-                    await fetch(dbUrl + roomKey, { method: "POST", body: JSON.stringify(data) });
+                    await fetch(fullUrl, { method: "POST", body: JSON.stringify(data) });
                     startGame();
                 } else {
                     document.getElementById("status").innerText = "その部屋は満員です。別の合言葉にしてください。";
@@ -147,6 +155,7 @@
             }
         }
 
+        // 🎮 ゲーム開始
         function startGame() {
             document.getElementById("lobbyScreen").classList.remove("active");
             document.getElementById("gameScreen").classList.add("active");
@@ -157,9 +166,11 @@
             loopInterval = setInterval(syncGameData, 500);
         }
 
+        // 高さを送信＆受信する関数
         async function syncGameData() {
             try {
-                const res = await fetch(dbUrl + roomKey);
+                const fullUrl = dbUrl + roomKey;
+                const res = await fetch(fullUrl);
                 if(!res.ok) return;
                 const data = await res.json();
 
@@ -171,7 +182,7 @@
                 updateDisplay(false); 
 
                 data[myRole] = myHeightNum;
-                await fetch(dbUrl + roomKey, { method: "POST", body: JSON.stringify(data) });
+                await fetch(fullUrl, { method: "POST", body: JSON.stringify(data) });
             } catch(e) { console.log(e); }
         }
 
