@@ -1,148 +1,43 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>タワー・タイピング対戦（通信版）</title>
+    <title>タワー・タイピング対戦</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #23272a;
-            color: #ffffff;
+            margin: 0; padding: 0; background-color: #23272a; color: #ffffff;
             font-family: 'Helvetica Neue', Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden;
         }
-
-        .screen {
-            display: none;
-            text-align: center;
-            width: 100%;
-            max-width: 600px;
-        }
-
-        .active {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .title-img {
-            max-width: 90%;
-            height: auto;
-            margin-bottom: 20px;
-        }
-
-        .input-container {
-            margin-bottom: 10px;
-        }
-
+        .screen { display: none; text-align: center; width: 100%; max-width: 600px; }
+        .active { display: flex; flex-direction: column; align-items: center; }
+        .title-img { max-width: 90%; height: auto; margin-bottom: 20px; }
+        .input-container { margin-bottom: 10px; }
         #roomPass {
-            font-size: 20px;
-            padding: 12px 20px;
-            width: 280px;
-            border: 3px solid #6c757d;
-            border-radius: 12px;
-            background-color: #2f3136;
-            color: #fff;
-            text-align: center;
-            outline: none;
+            font-size: 20px; padding: 12px 20px; width: 280px;
+            border: 3px solid #6c757d; border-radius: 12px;
+            background-color: #2f3136; color: #fff; text-align: center; outline: none;
         }
-
-        .alert-message {
-            color: #ff8a65;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            min-height: 24px;
-        }
-
-        .button-container {
-            display: flex;
-            gap: 40px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .img-button {
-            cursor: pointer;
-            transition: transform 0.2s;
-            width: 180px;
-            height: 180px;
-            object-fit: cover;
-            border-radius: 50%;
-        }
-
-        .img-button:hover {
-            transform: translateY(-6px) scale(1.04);
-        }
-
-        #status {
-            margin-top: 45px;
-            font-size: 20px;
-            font-weight: bold;
-            color: #e9ecef;
-            padding: 10px 20px;
-            background-color: rgba(0, 0, 0, 0.2);
-            border-radius: 20px;
-        }
-
+        .alert-message { color: #ff8a65; font-size: 18px; font-weight: bold; margin-bottom: 20px; min-height: 24px; }
+        .button-container { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+        .img-button { cursor: pointer; transition: transform 0.2s; width: 180px; height: 180px; object-fit: cover; border-radius: 50%; }
+        .img-button:hover { transform: translateY(-6px) scale(1.04); }
+        
+        #status { margin-top: 45px; font-size: 20px; font-weight: bold; color: #e9ecef; padding: 10px 20px; background-color: rgba(0,0,0,0.2); border-radius: 20px; }
+        
         /* 🎮 ゲーム画面のデザイン */
-        .vs-container {
-            display: flex;
-            gap: 50px;
-            margin-bottom: 20px;
-            justify-content: center;
-            width: 100%;
-        }
-
-        .player-box {
-            background: #2f3136;
-            padding: 15px;
-            border-radius: 12px;
-            min-width: 150px;
-        }
-
-        .my-box {
-            border: 3px solid #a3e635;
-        }
-
-        .rival-box {
-            border: 3px solid #ff8a65;
-        }
-
-        .height-val {
-            font-size: 36px;
-            font-weight: bold;
-            color: #ffd8b3;
-        }
-
-        .floor-status {
-            font-size: 16px;
-            color: #aaa;
-        }
-
-        .word-display {
-            font-size: 36px;
-            background: #2f3136;
-            padding: 20px;
-            border-radius: 12px;
-            letter-spacing: 2px;
-            margin-bottom: 20px;
-        }
-
-        .typed-word {
-            color: #555;
-        }
+        .vs-container { display: flex; gap: 50px; margin-bottom: 20px; justify-content: center; width: 100%; }
+        .player-box { background: #2f3136; padding: 15px; border-radius: 12px; min-width: 150px; }
+        .my-box { border: 3px solid #a3e635; }
+        .rival-box { border: 3px solid #ff8a65; }
+        .height-val { font-size: 36px; font-weight: bold; color: #ffd8b3; }
+        .floor-status { font-size: 16px; color: #aaa; }
+        .word-display { font-size: 36px; background: #2f3136; padding: 20px; border-radius: 12px; letter-spacing: 2px; margin-bottom: 20px; }
+        .typed-word { color: #555; }
     </style>
 </head>
-
 <body>
 
     <!-- ================= 1. ロビー画面 ================= -->
@@ -162,73 +57,68 @@
     <!-- ================= 2. ゲーム画面 ================= -->
     <div id="gameScreen" class="screen">
         <div class="vs-container">
-            <!-- じぶんの高さ -->
             <div class="player-box my-box">
                 <div>あなた</div>
                 <div class="height-val" id="myHeight">0 cm</div>
                 <div class="floor-status" id="myFloor">地上 0階</div>
             </div>
-            <!-- あいての高さ -->
             <div class="player-box rival-box">
                 <div>あいて</div>
                 <div class="height-val" id="rivalHeight">0 cm</div>
                 <div class="floor-status" id="rivalFloor">地上 0階</div>
             </div>
         </div>
-
+        
         <div class="word-display" id="wordBox">loading...</div>
         <p>キーボードで文字をうってね！</p>
     </div>
     <script>
-        // 誰でも無料で制限なく使えるKVdbというデータサーバーのURLです
-        const dbUrl = "https://kvdb.io";
-
+        const dbUrl = "https://kvdb.io"; 
+        
         const wordList = ["apple", "banana", "cherry", "grape", "orange", "lemon", "melon", "peach"];
         let currentWord = "";
         let typedIndex = 0;
-
-        let myRole = "";       // "p1"（作った人） または "p2"（入った人）
+        
+        let myRole = "";       
         let myHeightNum = 0;
         let rivalHeightNum = 0;
-        let roomKey = "";      // 通信に使う部屋の名前
+        let roomKey = "";      
         let loopInterval = null;
 
-        // 1. 部屋を作る（プレイヤー1になる）
         async function createRoom() {
             const pass = document.getElementById("roomPass").value;
-            if (!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
+            if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             roomKey = encodeURIComponent(pass);
             myRole = "p1";
 
             document.getElementById("status").innerText = "部屋を作って相手を待っています...";
-
+            
             const startData = { p1: 0, p2: 0, status: "waiting" };
             await fetch(dbUrl + roomKey, {
                 method: "POST",
                 body: JSON.stringify(startData)
             });
 
+            if(loopInterval) clearInterval(loopInterval);
             loopInterval = setInterval(checkRivalJoin, 1000);
         }
 
-        // プレイヤー1専用：プレイヤー2が来たか見張る
         async function checkRivalJoin() {
             try {
                 const res = await fetch(dbUrl + roomKey);
-                if (!res.ok) return;
+                if(!res.ok) return; 
                 const data = await res.json();
-
-                if (data.status === "playing") {
-                    clearInterval(loopInterval);
+                
+                if(data.status === "playing") {
+                    clearInterval(loopInterval); 
                     startGame();
                 }
-            } catch (e) { console.log(e); }
+            } catch(e) { console.log(e); }
         }
 
-        // 2. 部屋に入る（プレイヤー2になる）
         async function joinRoom() {
             const pass = document.getElementById("roomPass").value;
-            if (!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
+            if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             roomKey = encodeURIComponent(pass);
             myRole = "p2";
 
@@ -236,48 +126,53 @@
 
             try {
                 const res = await fetch(dbUrl + roomKey);
-                if (!res.ok) { document.getElementById("status").innerText = "その部屋は見つかりませんでした。"; return; }
-                const data = await res.json();
+                
+                if(!res.ok) {
+                    const startData = { p1: 0, p2: 0, status: "playing" };
+                    await fetch(dbUrl + roomKey, { method: "POST", body: JSON.stringify(startData) });
+                    startGame();
+                    return;
+                }
 
-                if (data.status === "waiting") {
+                const data = await res.json();
+                if(data.status === "waiting" || data.status === "playing") {
                     data.status = "playing";
                     await fetch(dbUrl + roomKey, { method: "POST", body: JSON.stringify(data) });
                     startGame();
                 } else {
-                    document.getElementById("status").innerText = "その部屋は満員か、すでにゲームが終わっています。";
+                    document.getElementById("status").innerText = "その部屋は満員です。別の合言葉にしてください。";
                 }
-            } catch (e) {
+            } catch(e) {
                 document.getElementById("status").innerText = "通信エラーが発生しました。";
             }
         }
 
-        // 🎮 本当のゲーム開始
         function startGame() {
             document.getElementById("lobbyScreen").classList.remove("active");
             document.getElementById("gameScreen").classList.add("active");
             nextWord();
             window.addEventListener("keydown", checkInput);
-
+            
+            if(loopInterval) clearInterval(loopInterval);
             loopInterval = setInterval(syncGameData, 500);
         }
 
-        // ネットを通じてお互いの高さをデータ送信＆受信
         async function syncGameData() {
             try {
                 const res = await fetch(dbUrl + roomKey);
-                if (!res.ok) return;
+                if(!res.ok) return;
                 const data = await res.json();
 
-                if (myRole === "p1") {
-                    rivalHeightNum = data.p2;
+                if(myRole === "p1") {
+                    rivalHeightNum = data.p2 || 0;
                 } else {
-                    rivalHeightNum = data.p1;
+                    rivalHeightNum = data.p1 || 0;
                 }
-                updateDisplay(false);
+                updateDisplay(false); 
 
                 data[myRole] = myHeightNum;
                 await fetch(dbUrl + roomKey, { method: "POST", body: JSON.stringify(data) });
-            } catch (e) { console.log(e); }
+            } catch(e) { console.log(e); }
         }
 
         function nextWord() {
@@ -306,7 +201,7 @@
         }
 
         function updateDisplay(isMyData) {
-            if (isMyData) {
+            if(isMyData) {
                 document.getElementById("myHeight").innerText = myHeightNum + " cm";
                 const myFloor = document.getElementById("myFloor");
                 if (myHeightNum >= 0) {
@@ -330,5 +225,4 @@
         }
     </script>
 </body>
-
 </html>
