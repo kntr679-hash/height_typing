@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タワー・タイピング対戦</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #23272a;
+            color: #ffffff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 画面の切り替え用設定 */
+        .screen { display: none; text-align: center; width: 100%; max-width: 600px; }
+        .active { display: flex; flex-direction: column; align-items: center; }
+
+        /* タイトル画像の設定 */
+        .title-img {
+            max-width: 90%;
+            height: auto;
+            margin-bottom: 20px;
+        }
+
+        /* ロビー画面（パスワード入力） */
+        .input-container { margin-bottom: 10px; }
+        #roomPass {
+            font-size: 20px; padding: 12px 20px; width: 280px;
+            border: 3px solid #6c757d; border-radius: 12px;
+            background-color: #2f3136; color: #fff; text-align: center; outline: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #roomPass:focus {
+            border-color: #ffffff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+        }
+
+        /* 🚨 新しい警告メッセージ（合言葉を入れてね）の見た目 */
+        .alert-message {
+            color: #ff8a65;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            min-height: 24px; /* 文字がない時も高さをキープしてガタつきを防ぐ */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .button-container { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
+        .img-button {
+            cursor: pointer; transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
+            width: 180px; height: 180px; object-fit: cover; border-radius: 50%;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+        .img-button:hover { transform: translateY(-6px) scale(1.04); filter: brightness(1.08); box-shadow: 0 14px 24px rgba(0,0,0,0.5); }
+        .img-button:active { transform: translateY(2px) scale(0.96); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+        
+        #status { 
+            margin-top: 45px; font-size: 20px; font-weight: bold; color: #e9ecef; min-height: 24px;
+            background-color: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 20px;
+        }
+
+        /* ゲーム画面のデザイン */
+        .height-display { font-size: 48px; font-weight: bold; color: #ffd8b3; margin-bottom: 10px; }
+        .floor-status { font-size: 20px; color: #a3e635; margin-bottom: 30px; }
+        .word-display { font-size: 36px; background: #2f3136; padding: 20px; border-radius: 12px; letter-spacing: 2px; margin-bottom: 20px; min-width: 300px; }
+        .typed-word { color: #aaa; }
+    </style>
+</head>
+<body>
+
+    <!-- ================= 1. ロビー画面 ================= -->
+    <div id="lobbyScreen" class="screen active">
+        <img src="title.jpg" alt="友人とタイピングゲーム!!!" class="title-img">
+        
+        <div class="input-container">
+            <input type="text" id="roomPass" placeholder="合言葉をにゅうりょく">
+        </div>
+
+        <!-- 🚨 ここに「合言葉を入れてね！」が赤文字で出ます -->
+        <div id="alertBox" class="alert-message"></div>
+
+        <div class="button-container">
+            <img src="create_room.jpg" alt="部屋を作る" class="img-button" onclick="createRoom()">
+            <img src="enter_room.jpg" alt="部屋に入る" class="img-button" onclick="joinRoom()">
+        </div>
+        <p id="status">合言葉を入れて、ボタンを押してね</p>
+    </div>
+
+    <!-- ================= 2. ゲーム画面 ================= -->
+    <div id="gameScreen" class="screen">
+        <div class="height-display" id="myHeight">0 cm</div>
+        <div class="floor-status" id="floorStatus">地上 0階相当</div>
+        
+        <div class="word-display" id="wordBox">loading...</div>
+        <p>キーボードで文字をうってね！</p>
+    </div>
+
+    <script>
+        const baseUrl = "https://picolabs.ch";
+        const wordList = ["apple", "banana", "cherry", "grape", "orange", "lemon", "melon", "peach"];
+        let currentWord = "";
+        let typedIndex = 0;
+        let myHeightNum = 0;
+
+        async function createRoom() {
+            const pass = document.getElementById("roomPass").value;
+            const alertBox = document.getElementById("alertBox");
+            
+            if(!pass) {
+                alertBox.innerText = "⚠ 合言葉を入れてね！"; // 画面に表示
+                return;
+            }
+            alertBox.innerText = ""; // 入力されていれば消す
+
+            document.getElementById("status").innerText = "部屋を作っています...";
+            const response = await fetch(baseUrl + pass, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ state: "waiting" })
+            });
+            if(response.ok) {
+                document.getElementById("status").innerText = "部屋を作ったよ！友達に【入る】ボタンを押してもらってね。";
+                document.getElementById("status").style.color = "#a3e635";
+                setTimeout(startGame, 3000); 
+            }
+        }
+
+        async function joinRoom() {
+            const pass = document.getElementById("roomPass").value;
+            const alertBox = document.getElementById("alertBox");
+
+            if(!pass) {
+                alertBox.innerText = "⚠ 合言葉を入れてね！"; // 画面に表示
+                return;
+            }
+            alertBox.innerText = ""; // 入力されていれば消す
+
+            document.getElementById("status").innerText = "部屋を探しています...";
+            const response = await fetch(baseUrl + pass);
+            if(!response.ok) {
+                document.getElementById("status").innerText = "その部屋は見つかりませんでした。";
+                return;
+            }
+            const data = await response.json();
+            if(data.state === "waiting") {
+                startGame();
+            }
+        }
+
+        function startGame() {
+            document.getElementById("lobbyScreen").classList.remove("active");
+            document.getElementById("gameScreen").classList.add("active");
+            nextWord();
+            window.addEventListener("keydown", checkInput);
+        }
+
+        function nextWord() {
+            currentWord = wordList[Math.floor(Math.random() * wordList.length)];
+            typedIndex = 0;
+            updateWordDisplay();
+        }
+
+        function updateWordDisplay() {
+            const wordBox = document.getElementById("wordBox");
+            const typed = currentWord.substring(0, typedIndex);
+            const untyped = currentWord.substring(typedIndex);
+            wordBox.innerHTML = `<span class="typed-word">${typed}</span>${untyped}`;
+        }
+
+        function checkInput(e) {
+            if (e.key.length !== 1) return;
+
+            if (e.key === currentWord[typedIndex]) {
+                typedIndex++;
+                if (typedIndex >= currentWord.length) {
+                    myHeightNum += 10;
+                    updateHeight();
+                    nextWord();
+                } else {
+                    updateWordDisplay();
+                }
+            } else {
+                myHeightNum -= 30;
+                updateHeight();
+                typedIndex = 0;
+                updateWordDisplay();
+            }
+        }
+
+        function updateHeight() {
+            document.getElementById("myHeight").innerText = myHeightNum + " cm";
+            const floorStatus = document.getElementById("floorStatus");
+            if (myHeightNum >= 0) {
+                const floor = Math.floor(myHeightNum / 300);
+                floorStatus.innerText = `地上 ${floor} 階相当`;
+                floorStatus.style.color = "#a3e635";
+            } else {
+                const bFloor = Math.floor(Math.abs(myHeightNum) / 300) + 1;
+                floorStatus.innerText = `地下 ${bFloor} 階に突入中...🕳️`;
+                floorStatus.style.color = "#f87171";
+            }
+        }
+    </script>
+</body>
+</html>
