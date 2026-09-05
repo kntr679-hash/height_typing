@@ -60,8 +60,8 @@
         </div>
         <div id="alertBox" class="alert-message"></div>
         <div class="button-container">
-            <img src="create_room.jpg" alt="部屋を作る" class="img-button" onclick="createRoom()">
-            <img src="enter_room.jpg" alt="部屋に入る" class="img-button" onclick="joinRoom()">
+            <!-- ボタンを1つに統合しました -->
+            <img src="enter_room.jpg" alt="部屋に入る" class="img-button" onclick="joinOrCreateRoom()">
         </div>
         <p id="status">合言葉を入れて、ボタンを押してね</p>
     </div>
@@ -100,7 +100,17 @@
         let myRole = "";       
         let activeRoomPass = ""; 
 
-        async function createRoom() {
+        // URLパラメータ（?room=xxx）から合言葉を自動読み込み
+        window.addEventListener("DOMContentLoaded", () => {
+            const params = new URLSearchParams(window.location.search);
+            const roomParam = params.get("room") || params.get("password");
+            if (roomParam) {
+                document.getElementById("roomPass").value = roomParam;
+            }
+        });
+
+        // 部屋に入る・無ければ作る統合関数
+        async function joinOrCreateRoom() {
             const roomPass = document.getElementById("roomPass").value.trim();
             const alertBox = document.getElementById("alertBox");
             const statusText = document.getElementById("status");
@@ -110,79 +120,69 @@
                 return;
             }
             alertBox.textContent = "";
-            statusText.textContent = "部屋を作成中...";
+            statusText.textContent = "部屋を確認中...";
 
             const targetUrl = `https://kvdb.io/${bucketId}/${roomPass}`;
 
             try {
-                // headersを削除して、 methodをPOSTに戻し、ブラウザのPreflight(安全確認)ガードを回避
-                const response = await fetch(targetUrl, {
-                    method: "POST",
-                    body: JSON.stringify({
-                        p1_connected: true,
-                        p2_connected: false,
-                        p1_height: 0,
-                        p2_height: 0,
-                        status: "waiting"
-                    })
-                });
+                // まず現在の状態を取得してみる
+                const response = await fetch(targetUrl);
+                
+                if (response.status === 404) {
+                    // 部屋が存在しない（自分が最初の1人目）
+                    statusText.textContent = "新しい部屋を作成中...";
+                    myRole = "p1";
+                    activeRoomPass = roomPass;
 
-                if (!response.ok) throw new Error("サーバー応答エラー");
+                    // 403回避のためheadersなしでPUT通信
+                    const putResponse = await fetch(targetUrl, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                            p1_connected: true,
+                            p2_connected: false,
+                            p1_height: 0,
+                            p2_height: 0,
+                            status: "waiting"
+                        })
+                    });
 
-                myRole = "p1";
-                activeRoomPass = roomPass;
-                statusText.textContent = "部屋ができました！相手の参加を待っています...";
-                waitForOpponent(roomPass);
+                    if (!putResponse.ok) throw new Error("部屋の作成に失敗しました");
+
+                    statusText.textContent = "部屋ができました！相手の参加を待っています...";
+                    waitForOpponent(roomPass);
+
+                } else if (response.ok) {
+                    // 部屋がすでにある（自分が2人目）
+                    const roomData = await response.json();
+
+                    if (roomData.p2_connected) {
+                        alertBox.textContent = "この部屋はすでに満員です！";
+                        statusText.textContent = "入れませんでした。";
+                        return;
+                    }
+
+                    myRole = "p2";
+                    activeRoomPass = roomPass;
+                    roomData.p2_connected = true;
+                    roomData.status = "playing";
+
+                    // データを更新するためにPUT
+                    const updateResponse = await fetch(targetUrl, {
+                        method: "PUT",
+                        body: JSON.stringify(roomData)
+                    });
+
+                    if (!updateResponse.ok) throw new Error("部屋への参加に失敗しました");
+
+                    statusText.textContent = "部屋に入れました！ゲームを開始します。";
+                    startGame();
+                } else {
+                    throw new Error("通信エラーが発生しました");
+                }
 
             } catch (error) {
                 console.error(error);
                 alertBox.textContent = "エラーが発生しました。";
-                statusText.textContent = "作成に失敗しました。";
-            }
-        }
-
-        async function joinRoom() {
-            const roomPass = document.getElementById("roomPass").value.trim();
-            const alertBox = document.getElementById("alertBox");
-            const statusText = document.getElementById("status");
-
-            if (!roomPass) {
-                alertBox.textContent = "合言葉を入力してください！";
-                return;
-            }
-            alertBox.textContent = "";
-            statusText.textContent = "部屋を探しています...";
-
-            const targetUrl = `https://kvdb.io/${bucketId}/${roomPass}`;
-
-            try {
-                const response = await fetch(targetUrl);
-                if (!response.ok) throw new Error("部屋が見つかりません");
-
-                const roomData = await response.json();
-
-                if (roomData.p2_connected) {
-                    alertBox.textContent = "この部屋はすでに満員です！";
-                    statusText.textContent = "入れませんでした。";
-                    return;
-                }
-
-                myRole = "p2";
-                activeRoomPass = roomPass;
-                roomData.p2_connected = true;
-                roomData.status = "playing";
-
-                await fetch(targetUrl, {
-                    method: "POST",
-                    body: JSON.stringify(roomData)
-                });
-
-                statusText.textContent = "部屋に入れました！ゲームを開始します。";
-                startGame();
-
-            } catch (error) {
-                console.error(error);
-                alertBox.textContent = "部屋が見つからないか、エラーが発生しました。";
                 statusText.textContent = "接続失敗。";
             }
         }
