@@ -4,8 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>タワー・タイピング対戦</title>
+
 <style>
-  .version-tag { position:absolute; top:10px; left:10px; font-size:14px; color:#72767d; font-family:monospace; }
+  .version-tag {
+    position:absolute; top:10px; left:10px;
+    font-size:14px; color:#72767d; font-family:monospace;
+  }
   body {
     margin:0; padding:0; background:#23272a; color:#fff;
     font-family:Arial; display:flex; flex-direction:column;
@@ -13,11 +17,23 @@
   }
   .screen { display:none; text-align:center; width:100%; max-width:600px; }
   .active { display:block; }
+
+  .title-img {
+    max-width:90%; height:auto; margin-bottom:20px;
+  }
+
   #roomPass {
     font-size:20px; padding:12px 20px; width:280px;
     border:3px solid #6c757d; border-radius:12px;
     background:#2f3136; color:#fff; text-align:center;
   }
+
+  .img-button {
+    cursor:pointer; transition:transform 0.2s;
+    width:180px; height:180px; object-fit:cover; border-radius:50%;
+  }
+  .img-button:hover { transform:translateY(-6px) scale(1.04); }
+
   .word-display {
     font-size:32px; background:#2f3136; padding:12px 20px;
     border-radius:12px; margin-top:20px;
@@ -25,25 +41,28 @@
   .typed-word { color:#555; }
 </style>
 </head>
+
 <body>
 <div class="version-tag">Ver.2.0 MantleDB</div>
 
-<!-- ロビー -->
+<!-- ロビー画面 -->
 <div id="lobbyScreen" class="screen active">
-  <h2>合言葉で部屋に入る</h2>
+  <img src="title.jpg" class="title-img">
   <input id="roomPass" placeholder="合言葉を入力">
-  <button onclick="joinOrCreateRoom()">入室する</button>
+  <br><br>
+  <img src="enter_room.jpg" class="img-button" onclick="joinOrCreateRoom()">
   <p id="status">合言葉を入れてボタンを押してね</p>
   <p id="alertBox" style="color:#ff8a65;"></p>
 </div>
 
-<!-- ゲーム -->
+<!-- ゲーム画面 -->
 <div id="gameScreen" class="screen">
   <h2>タワー・タイピング対戦</h2>
   <div>
     あなたの高さ：<span id="myHeight">0</span> cm<br>
     あいての高さ：<span id="rivalHeight">0</span> cm
   </div>
+
   <div class="word-display">
     <span id="typedPart" class="typed-word"></span>
     <span id="untypedPart"></span>
@@ -58,24 +77,21 @@ async function loadRoom(roomPass) {
   const url = `https://mantledb.sh/${DB_NAME}/room_${encodeURIComponent(roomPass)}`;
   const res = await fetch(url);
   if (!res.ok) return null;
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
+  try { return await res.json(); }
+  catch { return null; }
 }
 
 async function saveRoom(roomPass, roomData) {
   const url = `https://mantledb.sh/${DB_NAME}/room_${encodeURIComponent(roomPass)}`;
   await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(roomData)
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify(roomData)
   });
 }
 
 // ---- ゲーム状態 ----
-let myRole = "";        // "p1" or "p2"
+let myRole = "";
 let roomPass = "";
 let currentWord = "";
 let typedIndex = 0;
@@ -106,12 +122,12 @@ async function joinOrCreateRoom() {
     myRole = "p1";
     currentWord = pickWord();
     room = {
-      p1_connected: true,
-      p2_connected: false,
-      p1_height: 0,
-      p2_height: 0,
-      current_word: currentWord,
-      status: "waiting"
+      p1_connected:true,
+      p2_connected:false,
+      p1_height:0,
+      p2_height:0,
+      current_word:currentWord,
+      status:"waiting"
     };
     await saveRoom(roomPass, room);
     status.textContent = "部屋ができました！相手の参加を待っています...";
@@ -133,7 +149,7 @@ async function joinOrCreateRoom() {
 }
 
 function pickWord() {
-  return words[Math.floor(Math.random() * words.length)];
+  return words[Math.floor(Math.random()*words.length)];
 }
 
 // ---- p1側：相手待ち ----
@@ -169,7 +185,6 @@ function startGame(room) {
 
   window.addEventListener("keydown", onKey);
 
-  // 相手＆単語の同期ポーリング
   pollTimer = setInterval(syncFromServer, 1000);
 }
 
