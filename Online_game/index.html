@@ -4,195 +4,235 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>タワー・タイピング対戦</title>
-
 <style>
-    .version-tag {
-        position: absolute; top: 10px; left: 10px;
-        font-size: 14px; color: #72767d; font-family: monospace;
-    }
-    body {
-        margin: 0; padding: 0; background-color: #23272a; color: #ffffff;
-        font-family: Arial;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        min-height: 100vh;
-    }
-    .screen { display: none; text-align: center; width: 100%; max-width: 600px; }
-    .active { display: block; }
-    #roomPass {
-        font-size: 20px; padding: 12px 20px; width: 280px;
-        border: 3px solid #6c757d; border-radius: 12px;
-        background-color: #2f3136; color: #fff; text-align: center;
-    }
-    .word-display {
-        font-size: 38px; background: #2f3136; padding: 15px 25px;
-        border-radius: 12px; letter-spacing: 2px;
-    }
-    .typed-word { color: #555; }
+  .version-tag { position:absolute; top:10px; left:10px; font-size:14px; color:#72767d; font-family:monospace; }
+  body {
+    margin:0; padding:0; background:#23272a; color:#fff;
+    font-family:Arial; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; min-height:100vh;
+  }
+  .screen { display:none; text-align:center; width:100%; max-width:600px; }
+  .active { display:block; }
+  #roomPass {
+    font-size:20px; padding:12px 20px; width:280px;
+    border:3px solid #6c757d; border-radius:12px;
+    background:#2f3136; color:#fff; text-align:center;
+  }
+  .word-display {
+    font-size:32px; background:#2f3136; padding:12px 20px;
+    border-radius:12px; margin-top:20px;
+  }
+  .typed-word { color:#555; }
 </style>
 </head>
-
 <body>
-<div class="version-tag">Ver.2.0 CountAPI</div>
+<div class="version-tag">Ver.2.0 MantleDB</div>
 
 <!-- ロビー -->
 <div id="lobbyScreen" class="screen active">
-    <h2>合言葉で部屋に入る</h2>
-    <input id="roomPass" placeholder="合言葉を入力">
-    <button onclick="joinRoom()">入室する</button>
-    <p id="status"></p>
+  <h2>合言葉で部屋に入る</h2>
+  <input id="roomPass" placeholder="合言葉を入力">
+  <button onclick="joinOrCreateRoom()">入室する</button>
+  <p id="status">合言葉を入れてボタンを押してね</p>
+  <p id="alertBox" style="color:#ff8a65;"></p>
 </div>
 
 <!-- ゲーム -->
 <div id="gameScreen" class="screen">
-    <h2>対戦中！</h2>
-
-    <div>
-        あなたの高さ：<span id="myHeight">0</span> cm<br>
-        あいての高さ：<span id="rivalHeight">0</span> cm
-    </div>
-
-    <div class="word-display">
-        <span id="typedPart" class="typed-word"></span>
-        <span id="untypedPart"></span>
-    </div>
+  <h2>タワー・タイピング対戦</h2>
+  <div>
+    あなたの高さ：<span id="myHeight">0</span> cm<br>
+    あいての高さ：<span id="rivalHeight">0</span> cm
+  </div>
+  <div class="word-display">
+    <span id="typedPart" class="typed-word"></span>
+    <span id="untypedPart"></span>
+  </div>
 </div>
 
 <script>
-// ---------------- CountAPI 基本関数 ----------------
-function countSet(key, value) {
-    return new Promise(resolve => {
-        const s = document.createElement("script");
-        s.src = `https://api.countapi.xyz/set/towergame/${key}?value=${value}&callback=cb`;
-        window.cb = res => resolve(res);
-        document.body.appendChild(s);
-    });
+// ---- MantleDB 基本 ----
+const DB_NAME = "towergame"; // 好きな名前でOK
+
+async function loadRoom(roomPass) {
+  const url = `https://mantledb.sh/${DB_NAME}/room_${encodeURIComponent(roomPass)}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
-function countGet(key) {
-    return new Promise(resolve => {
-        const s = document.createElement("script");
-        s.src = `https://api.countapi.xyz/get/towergame/${key}?callback=cb`;
-        window.cb = res => resolve(res);
-        document.body.appendChild(s);
-    });
+async function saveRoom(roomPass, roomData) {
+  const url = `https://mantledb.sh/${DB_NAME}/room_${encodeURIComponent(roomPass)}`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(roomData)
+  });
 }
 
-// ---------------- 変数 ----------------
-let roomKey = "";
-let myRole = "";
+// ---- ゲーム状態 ----
+let myRole = "";        // "p1" or "p2"
+let roomPass = "";
 let currentWord = "";
 let typedIndex = 0;
 let myHeight = 0;
 let rivalHeight = 0;
+let pollTimer = null;
 
 const words = ["tower","battle","typing","rocket","castle","future","coding","keyboard"];
 
-// ---------------- ロビー処理 ----------------
-async function joinRoom() {
-    roomKey = document.getElementById("roomPass").value.trim();
-    if (!roomKey) return;
+// ---- ロビー処理 ----
+async function joinOrCreateRoom() {
+  const pass = document.getElementById("roomPass").value.trim();
+  const status = document.getElementById("status");
+  const alertBox = document.getElementById("alertBox");
 
-    const p2 = await countGet(`room_${roomKey}_p2_connected`);
+  if (!pass) {
+    alertBox.textContent = "合言葉を入力してね";
+    return;
+  }
+  alertBox.textContent = "";
+  status.textContent = "部屋情報を読み込み中...";
 
-    if (!p2.value) {
-        // 新規部屋作成
-        myRole = "p1";
-        currentWord = pickWord();
+  roomPass = pass;
+  let room = await loadRoom(roomPass);
 
-        await countSet(`room_${roomKey}_p1_connected`, 1);
-        await countSet(`room_${roomKey}_p2_connected`, 0);
-        await countSet(`room_${roomKey}_p1_height`, 0);
-        await countSet(`room_${roomKey}_p2_height`, 0);
-        await countSet(`room_${roomKey}_word`, currentWord);
-
-        document.getElementById("status").textContent = "部屋ができました！相手を待っています...";
-        waitForP2();
-    } else {
-        // p2として入室
-        myRole = "p2";
-        await countSet(`room_${roomKey}_p2_connected`, 1);
-        startGame();
-    }
-}
-
-// ---------------- p2待ち ----------------
-function waitForP2() {
-    setInterval(async () => {
-        const p2 = await countGet(`room_${roomKey}_p2_connected`);
-        if (p2.value === 1) startGame();
-    }, 1000);
-}
-
-// ---------------- ゲーム開始 ----------------
-function startGame() {
-    document.getElementById("lobbyScreen").classList.remove("active");
-    document.getElementById("gameScreen").classList.add("active");
-
-    pollRoom();
-    window.addEventListener("keydown", onKey);
-}
-
-// ---------------- タイピング処理 ----------------
-function onKey(e) {
-    if (!/^[a-zA-Z]$/.test(e.key)) return;
-
-    const expected = currentWord[typedIndex];
-    if (e.key.toLowerCase() === expected.toLowerCase()) {
-        typedIndex++;
-        renderWord();
-
-        if (typedIndex >= currentWord.length) {
-            onWordComplete();
-        }
-    }
-}
-
-async function onWordComplete() {
-    typedIndex = 0;
+  if (!room) {
+    // 新規部屋作成（p1）
+    myRole = "p1";
     currentWord = pickWord();
-
-    if (myRole === "p1") {
-        myHeight += 10;
-        await countSet(`room_${roomKey}_p1_height`, myHeight);
-    } else {
-        myHeight += 10;
-        await countSet(`room_${roomKey}_p2_height`, myHeight);
+    room = {
+      p1_connected: true,
+      p2_connected: false,
+      p1_height: 0,
+      p2_height: 0,
+      current_word: currentWord,
+      status: "waiting"
+    };
+    await saveRoom(roomPass, room);
+    status.textContent = "部屋ができました！相手の参加を待っています...";
+    waitForOpponent();
+  } else {
+    // 既存部屋に参加（p2）
+    if (room.p2_connected) {
+      alertBox.textContent = "この部屋は満員です！";
+      status.textContent = "入れませんでした。";
+      return;
     }
-
-    await countSet(`room_${roomKey}_word`, currentWord);
-}
-
-// ---------------- 表示更新 ----------------
-function renderWord() {
-    document.getElementById("typedPart").textContent = currentWord.slice(0, typedIndex);
-    document.getElementById("untypedPart").textContent = currentWord.slice(typedIndex);
-}
-
-// ---------------- ポーリング ----------------
-function pollRoom() {
-    setInterval(async () => {
-        const w = await countGet(`room_${roomKey}_word`);
-        currentWord = w.value;
-        renderWord();
-
-        const p1h = await countGet(`room_${roomKey}_p1_height`);
-        const p2h = await countGet(`room_${roomKey}_p2_height`);
-
-        if (myRole === "p1") {
-            myHeight = p1h.value;
-            rivalHeight = p2h.value;
-        } else {
-            myHeight = p2h.value;
-            rivalHeight = p1h.value;
-        }
-
-        document.getElementById("myHeight").textContent = myHeight;
-        document.getElementById("rivalHeight").textContent = rivalHeight;
-    }, 1000);
+    myRole = "p2";
+    room.p2_connected = true;
+    room.status = "playing";
+    await saveRoom(roomPass, room);
+    status.textContent = "部屋に入れました！ゲームを開始します。";
+    startGame(room);
+  }
 }
 
 function pickWord() {
-    return words[Math.floor(Math.random() * words.length)];
+  return words[Math.floor(Math.random() * words.length)];
+}
+
+// ---- p1側：相手待ち ----
+function waitForOpponent() {
+  const status = document.getElementById("status");
+  pollTimer = setInterval(async () => {
+    let room = await loadRoom(roomPass);
+    if (!room) return;
+    if (room.p2_connected) {
+      clearInterval(pollTimer);
+      status.textContent = "対戦相手が来ました！ゲームを開始します。";
+      startGame(room);
+    }
+  }, 1500);
+}
+
+// ---- ゲーム開始 ----
+function startGame(room) {
+  document.getElementById("lobbyScreen").classList.remove("active");
+  document.getElementById("gameScreen").classList.add("active");
+
+  if (myRole === "p1") {
+    myHeight = room.p1_height;
+    rivalHeight = room.p2_height;
+  } else {
+    myHeight = room.p2_height;
+    rivalHeight = room.p1_height;
+  }
+  currentWord = room.current_word || pickWord();
+  typedIndex = 0;
+  renderWord();
+  updateHeights();
+
+  window.addEventListener("keydown", onKey);
+
+  // 相手＆単語の同期ポーリング
+  pollTimer = setInterval(syncFromServer, 1000);
+}
+
+function renderWord() {
+  document.getElementById("typedPart").textContent = currentWord.slice(0, typedIndex);
+  document.getElementById("untypedPart").textContent = currentWord.slice(typedIndex);
+}
+
+function updateHeights() {
+  document.getElementById("myHeight").textContent = myHeight;
+  document.getElementById("rivalHeight").textContent = rivalHeight;
+}
+
+// ---- キー入力 ----
+function onKey(e) {
+  if (!/^[a-zA-Z]$/.test(e.key)) return;
+  const expected = currentWord[typedIndex];
+  if (!expected) return;
+
+  if (e.key.toLowerCase() === expected.toLowerCase()) {
+    typedIndex++;
+    renderWord();
+    if (typedIndex >= currentWord.length) {
+      onWordCompleted();
+    }
+  }
+}
+
+async function onWordCompleted() {
+  typedIndex = 0;
+  currentWord = pickWord();
+  myHeight += 10;
+  updateHeights();
+
+  let room = await loadRoom(roomPass) || {};
+  if (myRole === "p1") {
+    room.p1_height = myHeight;
+  } else {
+    room.p2_height = myHeight;
+  }
+  room.current_word = currentWord;
+  await saveRoom(roomPass, room);
+}
+
+// ---- サーバーから同期 ----
+async function syncFromServer() {
+  let room = await loadRoom(roomPass);
+  if (!room) return;
+
+  if (myRole === "p1") {
+    myHeight = room.p1_height;
+    rivalHeight = room.p2_height;
+  } else {
+    myHeight = room.p2_height;
+    rivalHeight = room.p1_height;
+  }
+  updateHeights();
+
+  if (room.current_word && room.current_word !== currentWord) {
+    currentWord = room.current_word;
+    typedIndex = 0;
+    renderWord();
+  }
 }
 </script>
 </body>
