@@ -73,7 +73,8 @@
         <p>キーボードで文字をうってね！</p>
     </div>
     <script>
-        const dbUrl = "https://kvdb.io"; 
+        // 💡 あなたが作ってくれた新しい金庫のURLをセットしました！
+        const dbUrl = "https://kvdb.io/NyoUD2voFLj9cEYpa5Vp1w/"; 
         
         const wordList = ["apple", "banana", "cherry", "grape", "orange", "lemon", "melon", "peach"];
         let currentWord = "";
@@ -91,8 +92,6 @@
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             
             roomKey = encodeURIComponent(pass);
-            
-            // 💡 パソコンが絶対に勘違いしないURLの繋ぎ方にしました！
             const fullUrl = `${dbUrl}${roomKey}`;
             
             myRole = "p1";
