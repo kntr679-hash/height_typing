@@ -9,72 +9,46 @@
     .version-tag {
         position: absolute; top: 10px; left: 10px;
         font-size: 14px; color: #72767d; font-family: monospace;
-        z-index: 100;
     }
     body {
         margin: 0; padding: 0; background-color: #23272a; color: #ffffff;
-        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-family: Arial;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        min-height: 100vh; overflow: hidden; position: relative;
+        min-height: 100vh;
     }
     .screen { display: none; text-align: center; width: 100%; max-width: 600px; }
-    .active { display: flex; flex-direction: column; align-items: center; }
-    .title-img { max-width: 90%; height: auto; margin-bottom: 20px; }
+    .active { display: block; }
     #roomPass {
         font-size: 20px; padding: 12px 20px; width: 280px;
         border: 3px solid #6c757d; border-radius: 12px;
-        background-color: #2f3136; color: #fff; text-align: center; outline: none;
+        background-color: #2f3136; color: #fff; text-align: center;
     }
-    .alert-message { color: #ff8a65; font-size: 18px; font-weight: bold; margin-bottom: 20px; min-height: 24px; }
-    .img-button { cursor: pointer; transition: transform 0.2s; width: 180px; height: 180px; object-fit: cover; border-radius: 50%; }
-    .img-button:hover { transform: translateY(-6px) scale(1.04); }
-    #status { margin-top: 45px; font-size: 20px; font-weight: bold; color: #e9ecef; padding: 10px 20px; background-color: rgba(0,0,0,0.2); border-radius: 20px; }
-
-    .tower-battlefield {
-        display: flex; justify-content: space-between; align-items: flex-end;
-        width: 100%; max-width: 550px; height: 350px; margin-bottom: 30px;
-        background-color: rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 20px; box-sizing: border-box;
-    }
-    .tower-container { display: flex; flex-direction: column; align-items: center; width: 40%; height: 100%; }
-    .tower-visual {
-        width: 60px; height: 180px; background-color: #1a1c1e; border-radius: 8px;
-        position: relative; overflow: hidden; border: 2px solid #4f545c; display: flex; align-items: flex-end;
-    }
-    .tower-floor { width: 100%; transition: height 0.3s ease-out; }
-    .my-side .tower-floor { background: linear-gradient(to top, #76b813, #a3e635); }
-    .rival-side .tower-floor { background: linear-gradient(to top, #d85d32, #ff8a65); }
-
     .word-display {
         font-size: 38px; background: #2f3136; padding: 15px 25px;
-        border-radius: 12px; letter-spacing: 2px; border: 2px solid #4f545c;
+        border-radius: 12px; letter-spacing: 2px;
     }
     .typed-word { color: #555; }
 </style>
 </head>
 
 <body>
-<div class="version-tag">Ver.2.0 Firebase</div>
+<div class="version-tag">Ver.2.0 CountAPI</div>
 
-<!-- ロビー画面 -->
+<!-- ロビー -->
 <div id="lobbyScreen" class="screen active">
-    <img src="title.jpg" class="title-img">
-    <input type="text" id="roomPass" placeholder="合言葉を入力">
-    <div id="alertBox" class="alert-message"></div>
-    <img src="enter_room.jpg" class="img-button" onclick="joinRoom()">
-    <p id="status">合言葉を入れて、ボタンを押してね</p>
+    <h2>合言葉で部屋に入る</h2>
+    <input id="roomPass" placeholder="合言葉を入力">
+    <button onclick="joinRoom()">入室する</button>
+    <p id="status"></p>
 </div>
 
-<!-- ゲーム画面 -->
+<!-- ゲーム -->
 <div id="gameScreen" class="screen">
-    <div class="tower-battlefield">
-        <div class="tower-container my-side">
-            <div class="tower-visual"><div class="tower-floor" id="myTower"></div></div>
-            <div id="myHeight">0 cm</div>
-        </div>
-        <div class="tower-container rival-side">
-            <div class="tower-visual"><div class="tower-floor" id="rivalTower"></div></div>
-            <div id="rivalHeight">0 cm</div>
-        </div>
+    <h2>対戦中！</h2>
+
+    <div>
+        あなたの高さ：<span id="myHeight">0</span> cm<br>
+        あいての高さ：<span id="rivalHeight">0</span> cm
     </div>
 
     <div class="word-display">
@@ -83,28 +57,29 @@
     </div>
 </div>
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
 <script>
-// -------------------- Firebase設定 --------------------
-const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-    projectId: "YOUR_PROJECT",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "XXXX",
-    appId: "XXXX"
-};
+// ---------------- CountAPI 基本関数 ----------------
+function countSet(key, value) {
+    return new Promise(resolve => {
+        const s = document.createElement("script");
+        s.src = `https://api.countapi.xyz/set/towergame/${key}?value=${value}&callback=cb`;
+        window.cb = res => resolve(res);
+        document.body.appendChild(s);
+    });
+}
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+function countGet(key) {
+    return new Promise(resolve => {
+        const s = document.createElement("script");
+        s.src = `https://api.countapi.xyz/get/towergame/${key}?callback=cb`;
+        window.cb = res => resolve(res);
+        document.body.appendChild(s);
+    });
+}
 
-// -------------------- 変数 --------------------
-let myRole = "";
+// ---------------- 変数 ----------------
 let roomKey = "";
+let myRole = "";
 let currentWord = "";
 let typedIndex = 0;
 let myHeight = 0;
@@ -112,81 +87,52 @@ let rivalHeight = 0;
 
 const words = ["tower","battle","typing","rocket","castle","future","coding","keyboard"];
 
-// -------------------- ロビー処理 --------------------
+// ---------------- ロビー処理 ----------------
 async function joinRoom() {
-    const pass = document.getElementById("roomPass").value.trim();
-    if (!pass) return;
+    roomKey = document.getElementById("roomPass").value.trim();
+    if (!roomKey) return;
 
-    roomKey = pass;
+    const p2 = await countGet(`room_${roomKey}_p2_connected`);
 
-    const ref = db.ref("rooms/" + roomKey);
-    const snapshot = await ref.get();
-
-    if (!snapshot.exists()) {
+    if (!p2.value) {
         // 新規部屋作成
         myRole = "p1";
         currentWord = pickWord();
 
-        await ref.set({
-            p1_connected: true,
-            p2_connected: false,
-            p1_height: 0,
-            p2_height: 0,
-            current_word: currentWord
-        });
+        await countSet(`room_${roomKey}_p1_connected`, 1);
+        await countSet(`room_${roomKey}_p2_connected`, 0);
+        await countSet(`room_${roomKey}_p1_height`, 0);
+        await countSet(`room_${roomKey}_p2_height`, 0);
+        await countSet(`room_${roomKey}_word`, currentWord);
 
+        document.getElementById("status").textContent = "部屋ができました！相手を待っています...";
         waitForP2();
     } else {
-        const data = snapshot.val();
-        if (data.p2_connected) {
-            alert("満員です！");
-            return;
-        }
-
+        // p2として入室
         myRole = "p2";
-        await ref.update({ p2_connected: true });
+        await countSet(`room_${roomKey}_p2_connected`, 1);
         startGame();
     }
 }
 
-// -------------------- p2待ち --------------------
+// ---------------- p2待ち ----------------
 function waitForP2() {
-    const ref = db.ref("rooms/" + roomKey + "/p2_connected");
-    ref.on("value", snap => {
-        if (snap.val() === true) startGame();
-    });
+    setInterval(async () => {
+        const p2 = await countGet(`room_${roomKey}_p2_connected`);
+        if (p2.value === 1) startGame();
+    }, 1000);
 }
 
-// -------------------- ゲーム開始 --------------------
+// ---------------- ゲーム開始 ----------------
 function startGame() {
     document.getElementById("lobbyScreen").classList.remove("active");
     document.getElementById("gameScreen").classList.add("active");
 
-    const ref = db.ref("rooms/" + roomKey);
-
-    // リアルタイム同期
-    ref.on("value", snap => {
-        const data = snap.val();
-        if (!data) return;
-
-        currentWord = data.current_word;
-        renderWord();
-
-        if (myRole === "p1") {
-            myHeight = data.p1_height;
-            rivalHeight = data.p2_height;
-        } else {
-            myHeight = data.p2_height;
-            rivalHeight = data.p1_height;
-        }
-
-        updateTowers();
-    });
-
+    pollRoom();
     window.addEventListener("keydown", onKey);
 }
 
-// -------------------- タイピング処理 --------------------
+// ---------------- タイピング処理 ----------------
 function onKey(e) {
     if (!/^[a-zA-Z]$/.test(e.key)) return;
 
@@ -205,38 +151,44 @@ async function onWordComplete() {
     typedIndex = 0;
     currentWord = pickWord();
 
-    const ref = db.ref("rooms/" + roomKey);
-
     if (myRole === "p1") {
         myHeight += 10;
-        await ref.update({
-            p1_height: myHeight,
-            current_word: currentWord
-        });
+        await countSet(`room_${roomKey}_p1_height`, myHeight);
     } else {
         myHeight += 10;
-        await ref.update({
-            p2_height: myHeight,
-            current_word: currentWord
-        });
+        await countSet(`room_${roomKey}_p2_height`, myHeight);
     }
+
+    await countSet(`room_${roomKey}_word`, currentWord);
 }
 
-// -------------------- 表示更新 --------------------
+// ---------------- 表示更新 ----------------
 function renderWord() {
     document.getElementById("typedPart").textContent = currentWord.slice(0, typedIndex);
     document.getElementById("untypedPart").textContent = currentWord.slice(typedIndex);
 }
 
-function updateTowers() {
-    const myPercent = Math.min(100, myHeight / 2);
-    const rivalPercent = Math.min(100, rivalHeight / 2);
+// ---------------- ポーリング ----------------
+function pollRoom() {
+    setInterval(async () => {
+        const w = await countGet(`room_${roomKey}_word`);
+        currentWord = w.value;
+        renderWord();
 
-    document.getElementById("myTower").style.height = myPercent + "%";
-    document.getElementById("rivalTower").style.height = rivalPercent + "%";
+        const p1h = await countGet(`room_${roomKey}_p1_height`);
+        const p2h = await countGet(`room_${roomKey}_p2_height`);
 
-    document.getElementById("myHeight").textContent = myHeight + " cm";
-    document.getElementById("rivalHeight").textContent = rivalHeight + " cm";
+        if (myRole === "p1") {
+            myHeight = p1h.value;
+            rivalHeight = p2h.value;
+        } else {
+            myHeight = p2h.value;
+            rivalHeight = p1h.value;
+        }
+
+        document.getElementById("myHeight").textContent = myHeight;
+        document.getElementById("rivalHeight").textContent = rivalHeight;
+    }, 1000);
 }
 
 function pickWord() {
