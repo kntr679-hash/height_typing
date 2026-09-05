@@ -73,8 +73,8 @@
         <p>キーボードで文字をうってね！</p>
     </div>
     <script>
-        // 💡 あなたが作ってくれた新しい金庫のURLをセットしました！
-        const dbUrl = "https://kvdb.io/NyoUD2voFLj9cEYpa5Vp1w/"; 
+        // ⭕ 誰でも自由に部屋を作れるオープンな金庫ID（バケット）に戻しました！
+        const dbUrl = "https://kvdb.io"; 
         
         const wordList = ["apple", "banana", "cherry", "grape", "orange", "lemon", "melon", "peach"];
         let currentWord = "";
@@ -92,7 +92,7 @@
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             
             roomKey = encodeURIComponent(pass);
-            const fullUrl = `${dbUrl}${roomKey}`;
+            const fullUrl = `${dbUrl}${roomKey}`; // バックティックで綺麗に合体
             
             myRole = "p1";
             document.getElementById("status").innerText = "部屋を作って相手を待っています...";
@@ -236,5 +236,8 @@
             }
         }
     </script>
+</body>
+</html>
+
 </body>
 </html>
