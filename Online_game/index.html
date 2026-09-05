@@ -91,10 +91,12 @@
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             
             roomKey = encodeURIComponent(pass);
-            const fullUrl = dbUrl + roomKey;
+            
+            // 💡 パソコンが絶対に勘違いしないURLの繋ぎ方にしました！
+            const fullUrl = `${dbUrl}${roomKey}`;
             
             myRole = "p1";
-            document.getElementById("status").innerText = "部屋を作して相手を待っています...";
+            document.getElementById("status").innerText = "部屋を作って相手を待っています...";
             
             const startData = { p1: 0, p2: 0, status: "waiting" };
             await fetch(fullUrl, {
@@ -109,7 +111,7 @@
         // プレイヤー1専用：プレイヤー2が来たか見張る
         async function checkRivalJoin() {
             try {
-                const fullUrl = dbUrl + roomKey;
+                const fullUrl = `${dbUrl}${roomKey}`;
                 const res = await fetch(fullUrl);
                 if(!res.ok) return; 
                 const data = await res.json();
@@ -127,7 +129,7 @@
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             
             roomKey = encodeURIComponent(pass);
-            const fullUrl = dbUrl + roomKey;
+            const fullUrl = `${dbUrl}${roomKey}`;
             myRole = "p2";
 
             document.getElementById("status").innerText = "部屋を探して入っています...";
@@ -169,7 +171,7 @@
         // 高さを送信＆受信する関数
         async function syncGameData() {
             try {
-                const fullUrl = dbUrl + roomKey;
+                const fullUrl = `${dbUrl}${roomKey}`;
                 const res = await fetch(fullUrl);
                 if(!res.ok) return;
                 const data = await res.json();
