@@ -35,14 +35,14 @@
         .height-val { font-size: 36px; font-weight: bold; color: #ffd8b3; }
         .floor-status { font-size: 16px; color: #aaa; }
         .word-display { font-size: 36px; background: #2f3136; padding: 20px; border-radius: 12px; letter-spacing: 2px; margin-bottom: 20px; }
-        .typed-word { color: #888; text-decoration: underline; }
+        .typed-word { color: #555; }
     </style>
 </head>
 <body>
 
     <!-- ================= 1. ロビー画面 ================= -->
     <div id="lobbyScreen" class="screen active">
-        <img src="title.jpg" alt="友友人友人とタイピングゲーム!!!" class="title-img">
+        <img src="title.jpg" alt="友人とタイピングゲーム!!!" class="title-img">
         <div class="input-container">
             <input type="text" id="roomPass" placeholder="合言葉をにゅうりょく">
         </div>
@@ -72,9 +72,10 @@
         <div class="word-display" id="wordBox">loading...</div>
         <p>キーボードで文字をうってね！</p>
     </div>
-
-    <!-- ================= 3. システム処理（JavaScript） ================= -->
     <script>
+        // 💡 あなたが用意してくれた新しい金庫のURLをセットしました！
+        const dbUrl = "https://kvdb.io"; 
+        
         const wordList = ["apple", "banana", "cherry", "grape", "orange", "lemon", "melon", "peach"];
         let currentWord = "";
         let typedIndex = 0;
@@ -85,21 +86,13 @@
         let roomKey = "";      
         let loopInterval = null;
 
-        // 🔑 あなたが取得したKVdbのバケットID
-        const BUCKET_ID = "2xcn6tqD6mMCcVn5WB8vVf";
-
-        // 人間が直してくれた、完璧に正しく動くURL共通生成関数
-        function getFullUrl() {
-            return `https://kvdb.io{BUCKET_ID}/${roomKey}`;
-        }
-
         // 1. 部屋を作る（プレイヤー1になる）
         async function createRoom() {
             const pass = document.getElementById("roomPass").value;
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             
             roomKey = encodeURIComponent(pass);
-            const fullUrl = getFullUrl();
+            const fullUrl = dbUrl + roomKey; // 1文字ずつ綺麗に繋ぎます！
             
             myRole = "p1";
             document.getElementById("status").innerText = "部屋を作って相手を待っています...";
@@ -116,7 +109,7 @@
 
         async function checkRivalJoin() {
             try {
-                const fullUrl = getFullUrl();
+                const fullUrl = dbUrl + roomKey;
                 const res = await fetch(fullUrl);
                 if(!res.ok) return; 
                 const data = await res.json();
@@ -134,7 +127,7 @@
             if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
             
             roomKey = encodeURIComponent(pass);
-            const fullUrl = getFullUrl();
+            const fullUrl = dbUrl + roomKey;
             myRole = "p2";
 
             document.getElementById("status").innerText = "部屋を探して入っています...";
@@ -142,7 +135,6 @@
             try {
                 const res = await fetch(fullUrl);
                 
-                // まだ部屋が作られていなかったら新しく作成してゲーム開始
                 if(!res.ok) {
                     const startData = { p1: 0, p2: 0, status: "playing" };
                     await fetch(fullUrl, { method: "POST", body: JSON.stringify(startData) });
@@ -163,7 +155,6 @@
             }
         }
 
-        // ゲーム本編の開始
         function startGame() {
             document.getElementById("lobbyScreen").classList.remove("active");
             document.getElementById("gameScreen").classList.add("active");
@@ -174,37 +165,31 @@
             loopInterval = setInterval(syncGameData, 500);
         }
 
-        // 定期的なデータの送受信（同期処理）
         async function syncGameData() {
             try {
-                const fullUrl = getFullUrl();
+                const fullUrl = dbUrl + roomKey;
                 const res = await fetch(fullUrl);
                 if(!res.ok) return;
                 const data = await res.json();
 
-                // 相手の最新スコアを取得
                 if(myRole === "p1") {
                     rivalHeightNum = data.p2 || 0;
                 } else {
                     rivalHeightNum = data.p1 || 0;
                 }
+                updateDisplay(false); 
 
-                // 自分の最新スコアをデータに書き込んで送信
                 data[myRole] = myHeightNum;
                 await fetch(fullUrl, { method: "POST", body: JSON.stringify(data) });
-                
-                updateDisplay(); 
             } catch(e) { console.log(e); }
         }
 
-        // 次の単語を表示
         function nextWord() {
             currentWord = wordList[Math.floor(Math.random() * wordList.length)];
             typedIndex = 0;
             updateWordDisplay();
         }
 
-        // 単語の画面表示を更新（入力済みの文字に色をつける）
         function updateWordDisplay() {
             const wordBox = document.getElementById("wordBox");
             const typed = currentWord.substring(0, typedIndex);
@@ -212,28 +197,40 @@
             wordBox.innerHTML = `<span class="typed-word">${typed}</span>${untyped}`;
         }
 
-        // キー入力を判定する処理
         function checkInput(e) {
-            // 入力されたキーが、現在の単語の次の文字と一致しているか
+            if (e.key.length !== 1) return;
             if (e.key === currentWord[typedIndex]) {
                 typedIndex++;
                 if (typedIndex >= currentWord.length) {
-                    // 単語をすべて打ち終えたら10cm（1階分）アップ！
-                    myHeightNum += 10;
-                    nextWord();
-                } else {
-                    updateWordDisplay();
-                }
+                    myHeightNum += 10; updateDisplay(true); nextWord();
+                } else { updateWordDisplay(); }
+            } else {
+                myHeightNum -= 30; updateDisplay(true); typedIndex = 0; updateWordDisplay();
             }
         }
 
-        // 画面の数値メーター表示を更新
-        function updateDisplay() {
-            document.getElementById("myHeight").innerText = myHeightNum + " cm";
-            document.getElementById("myFloor").innerText = `地上 ${Math.floor(myHeightNum / 10)} 階`;
-            
-            document.getElementById("rivalHeight").innerText = rivalHeightNum + " cm";
-            document.getElementById("rivalFloor").innerText = `地上 ${Math.floor(rivalHeightNum / 10)} 階`;
+        function updateDisplay(isMyData) {
+            if(isMyData) {
+                document.getElementById("myHeight").innerText = myHeightNum + " cm";
+                const myFloor = document.getElementById("myFloor");
+                if (myHeightNum >= 0) {
+                    myFloor.innerText = `地上 ${Math.floor(myHeightNum / 300)} 階`;
+                    myFloor.style.color = "#a3e635";
+                } else {
+                    myFloor.innerText = `地下 ${Math.floor(Math.abs(myHeightNum) / 300) + 1} 階 🕳️`;
+                    myFloor.style.color = "#f87171";
+                }
+            } else {
+                document.getElementById("rivalHeight").innerText = rivalHeightNum + " cm";
+                const rivalFloor = document.getElementById("rivalFloor");
+                if (rivalHeightNum >= 0) {
+                    rivalFloor.innerText = `地上 ${Math.floor(rivalHeightNum / 300)} 階`;
+                    rivalFloor.style.color = "#a3e635";
+                } else {
+                    rivalFloor.innerText = `地下 ${Math.floor(Math.abs(rivalHeightNum) / 300) + 1} 階 🕳️`;
+                    rivalFloor.style.color = "#f87171";
+                }
+            }
         }
     </script>
 </body>
