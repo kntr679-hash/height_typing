@@ -55,7 +55,8 @@
     </style>
 </head>
 <body>
-    <div class="version-tag">Ver.1.2</div>
+    <div class="version-tag">Ver.1.3 → 2.0-dev</div>
+
     <div id="lobbyScreen" class="screen active">
         <img src="title.jpg" alt="友人とタイピングゲーム!!!" class="title-img">
         <div class="input-container">
@@ -67,6 +68,7 @@
         </div>
         <p id="status">合言葉を入れて、ボタンを押してね</p>
     </div>
+
     <div id="gameScreen" class="screen">
         <div class="tower-battlefield">
             <div class="tower-container my-side">
@@ -94,10 +96,25 @@
             <p class="guide-text">キーボードで半角英字をうってね！</p>
         </div>
     </div>
+
     <script>
-        const bucketId = "2xcn6tqD6mMCcVn5WB8vVf"; 
-        let myRole = "";       
-        let activeRoomPass = ""; 
+        const bucketId = "2xcn6tqD6mMCcVn5WB8vVf";
+
+        let myRole = "";          // "p1" or "p2"
+        let activeRoomPass = "";  // 合言葉
+        let pollIntervalId = null;
+
+        // --- タイピング用変数 ---
+        const wordList = [
+            "tower", "battle", "typing", "friend", "online",
+            "rocket", "castle", "future", "coding", "keyboard"
+        ];
+        let currentWord = "";
+        let typedIndex = 0;
+
+        let myHeightVal = 0;      // cm
+        let rivalHeightVal = 0;   // cm
+
         window.onload = function() {
             const params = new URLSearchParams(window.location.search);
             const roomParam = params.get('room') || params.get('password');
@@ -105,53 +122,78 @@
                 document.getElementById("roomPass").value = roomParam;
                 document.getElementById("status").textContent = "URLから合言葉を読み込みました！";
             }
+        };
+
+        // ★ 本物の POST 通信
+        async function sendKvdbData(encodedPass, dataObj) {
+            await fetch(`https://kvdb.io/${bucketId}/${encodedPass}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(dataObj)
+            });
         }
-        function sendKvdbData(encodedPass, dataObj) {
-            const jsonString = encodeURIComponent(JSON.stringify(dataObj));
-            const img = new Image();
-            img.src = `https://kvdb.io/${bucketId}/${encodedPass}?data=${jsonString}&_method=POST&t=${Date.now()}`;
-        }
+
         async function joinOrCreateRoom() {
             const roomPass = document.getElementById("roomPass").value.trim();
             const alertBox = document.getElementById("alertBox");
             const statusText = document.getElementById("status");
+
             if (!roomPass) {
                 alertBox.textContent = "合言葉を入力してください！";
                 return;
             }
+
             alertBox.textContent = "";
             statusText.textContent = "部屋に接続中...";
+
             const encodedPass = encodeURIComponent(roomPass);
             const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
+
             try {
-                const response = await fetch(targetUrl);
+                const response = await fetch(targetUrl, {
+                    headers: { "Accept": "application/json" }
+                });
+
                 if (response.status === 404) {
+                    // 新規部屋作成（p1）
                     statusText.textContent = "新しい部屋を作成しています...";
-                    sendKvdbData(encodedPass, {
+                    const initialWord = pickRandomWord();
+
+                    await sendKvdbData(encodedPass, {
                         p1_connected: true,
                         p2_connected: false,
                         p1_height: 0,
                         p2_height: 0,
+                        current_word: initialWord,
                         status: "waiting"
                     });
+
                     myRole = "p1";
                     activeRoomPass = roomPass;
                     statusText.textContent = "部屋ができました！相手の参加を待っています...";
                     waitForOpponent(encodedPass);
                 } else if (response.ok) {
                     const roomData = await response.json();
+
                     if (roomData.p2_connected) {
                         alertBox.textContent = "この部屋はすでに満員です！";
                         statusText.textContent = "入れませんでした。";
                         return;
                     }
+
+                    // 既存部屋に参加（p2）
                     myRole = "p2";
                     activeRoomPass = roomPass;
+
                     roomData.p2_connected = true;
                     roomData.status = "playing";
-                    sendKvdbData(encodedPass, roomData);
+
+                    await sendKvdbData(encodedPass, roomData);
+
                     statusText.textContent = "部屋に入れました！ゲームを開始します。";
-                    startGame();
+                    startGame(roomData);
                 } else {
                     throw new Error("通信エラー");
                 }
@@ -161,27 +203,182 @@
                 statusText.textContent = "接続失敗。";
             }
         }
+
         function waitForOpponent(encodedPass) {
             const statusText = document.getElementById("status");
             const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
+
             const intervalId = setInterval(async () => {
                 try {
-                    const response = await fetch(targetUrl);
+                    const response = await fetch(targetUrl, {
+                        headers: { "Accept": "application/json" }
+                    });
                     if (!response.ok) return;
+
                     const roomData = await response.json();
                     if (roomData.p2_connected) {
                         clearInterval(intervalId);
                         statusText.textContent = "対戦相手が来ました！ゲームを開始します。";
-                        startGame();
+                        startGame(roomData);
                     }
                 } catch (error) {
                     console.error("監視エラー:", error);
                 }
             }, 2000);
         }
-        function startGame() {
+
+        // --- ゲーム開始 ---
+        function startGame(roomData) {
             document.getElementById("lobbyScreen").classList.remove("active");
             document.getElementById("gameScreen").classList.add("active");
+
+            // 高さ初期化
+            myHeightVal   = (myRole === "p1") ? roomData.p1_height : roomData.p2_height;
+            rivalHeightVal = (myRole === "p1") ? roomData.p2_height : roomData.p1_height;
+            updateTowerVisuals();
+
+            // 単語初期化
+            currentWord = roomData.current_word || pickRandomWord();
+            typedIndex = 0;
+            renderWord();
+
+            // キーボードイベント登録
+            window.addEventListener("keydown", handleKeydown);
+
+            // 相手の状態をポーリング
+            const encodedPass = encodeURIComponent(activeRoomPass);
+            startPolling(encodedPass);
+        }
+
+        // --- 単語関連 ---
+        function pickRandomWord() {
+            const idx = Math.floor(Math.random() * wordList.length);
+            return wordList[idx];
+        }
+
+        function renderWord() {
+            const typedPart = currentWord.slice(0, typedIndex);
+            const untypedPart = currentWord.slice(typedIndex);
+
+            document.getElementById("typedPart").textContent = typedPart;
+            document.getElementById("untypedPart").textContent = untypedPart;
+        }
+
+        function handleKeydown(e) {
+            const key = e.key;
+
+            // 半角英字のみ
+            if (!/^[a-zA-Z]$/.test(key)) return;
+
+            const expectedChar = currentWord[typedIndex];
+            if (!expectedChar) return;
+
+            if (key.toLowerCase() === expectedChar.toLowerCase()) {
+                typedIndex++;
+                renderWord();
+
+                // 単語を全部打ち終わったらタワー成長
+                if (typedIndex >= currentWord.length) {
+                    onWordCompleted();
+                }
+            }
+        }
+
+        async function onWordCompleted() {
+            // 自分のタワーを伸ばす（例：1単語 = 10cm）
+            myHeightVal += 10;
+            updateTowerVisuals();
+
+            // 新しい単語を生成
+            currentWord = pickRandomWord();
+            typedIndex = 0;
+            renderWord();
+
+            // サーバーに同期
+            const encodedPass = encodeURIComponent(activeRoomPass);
+            const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
+
+            try {
+                const response = await fetch(targetUrl, {
+                    headers: { "Accept": "application/json" }
+                });
+                if (!response.ok) return;
+
+                const roomData = await response.json();
+
+                if (myRole === "p1") {
+                    roomData.p1_height = myHeightVal;
+                } else {
+                    roomData.p2_height = myHeightVal;
+                }
+                roomData.current_word = currentWord;
+
+                await sendKvdbData(encodedPass, roomData);
+            } catch (error) {
+                console.error("同期エラー:", error);
+            }
+        }
+
+        // --- タワー表示更新 ---
+        function updateTowerVisuals() {
+            const myTowerFloor = document.getElementById("myTowerFloor");
+            const rivalTowerFloor = document.getElementById("rivalTowerFloor");
+            const myHeightText = document.getElementById("myHeight");
+            const rivalHeightText = document.getElementById("rivalHeight");
+            const myFloorText = document.getElementById("myFloor");
+            const rivalFloorText = document.getElementById("rivalFloor");
+
+            // 高さを 0〜100% にマッピング（例：最大200cmで100%）
+            const maxCm = 200;
+            const myPercent = Math.min(100, (myHeightVal / maxCm) * 100);
+            const rivalPercent = Math.min(100, (rivalHeightVal / maxCm) * 100);
+
+            myTowerFloor.style.height = `${myPercent}%`;
+            rivalTowerFloor.style.height = `${rivalPercent}%`;
+
+            myHeightText.textContent = `${myHeightVal} cm`;
+            rivalHeightText.textContent = `${rivalHeightVal} cm`;
+
+            const myFloor = Math.floor(myHeightVal / 10);
+            const rivalFloor = Math.floor(rivalHeightVal / 10);
+
+            myFloorText.textContent = `地上 ${myFloor}階`;
+            rivalFloorText.textContent = `地上 ${rivalFloor}階`;
+        }
+
+        // --- 相手の状態ポーリング ---
+        function startPolling(encodedPass) {
+            const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
+
+            if (pollIntervalId) clearInterval(pollIntervalId);
+
+            pollIntervalId = setInterval(async () => {
+                try {
+                    const response = await fetch(targetUrl, {
+                        headers: { "Accept": "application/json" }
+                    });
+                    if (!response.ok) return;
+
+                    const roomData = await response.json();
+
+                    // 相手の高さを更新
+                    if (myRole === "p1") {
+                        rivalHeightVal = roomData.p2_height;
+                    } else {
+                        rivalHeightVal = roomData.p1_height;
+                    }
+                    updateTowerVisuals();
+
+                    // 単語が変わっていたら更新（p2が後から入ったときなど）
+                    if (roomData.current_word && roomData.current_word !== currentWord) {
+                        currentWord = roomData.current_word;
+                        typedIndex = 0;
+                        renderWord();
+                    }
+                } catch (error) {
+                    console.error("ポーリングエラー:", error);
+                }
+            }, 1000);
         }
     </script>
 </body>
