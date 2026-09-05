@@ -73,63 +73,104 @@
         <p>キーボードで文字をうってね！</p>
     </div>
     <script>
- // 1. あなたのバケットID（金庫のID）をここにセットしてください
-const bucketId = "ここにあなたのバケットIDを入れる"; 
+// あなたのバケットID（金庫のID）
+const bucketId = "2xcn6tqD6mMCcVn5WB8vVf"; 
+let myRole = ""; // 自分が p1（作った人）か p2（入った人）かを入れる変数
 
-// 2. 基本となるURL（最後にスラッシュを入れておきます）
-const dbUrl = `https://kvdb.io{bucketId}`; 
-
-// ================= 部屋を作る関数 =================
-async function createRoom() {
+// ================= 2. 部屋に入る関数 =================
+async function joinRoom() {
     const roomPass = document.getElementById("roomPass").value.trim();
     const alertBox = document.getElementById("alertBox");
     const statusText = document.getElementById("status");
 
-    // 合言葉（パスワード）が空っぽなら警告して止める
     if (!roomPass) {
         alertBox.textContent = "合言葉を入力してください！";
         return;
     }
-    alertBox.textContent = ""; // 警告をクリア
-    statusText.textContent = "部屋を作成中...";
+    alertBox.textContent = "";
+    statusText.textContent = "部屋を探しています...";
+
+    // 💡 確実にスラッシュを入れた正しいURL
+    const targetUrl = `https://kvdb.io/${bucketId}/${roomPass}`;
 
     try {
-        // 💡 エラーの原因だったURLの組み立てを修正！
-        // https://kvdb.io というURLになります
-        const response = await fetch(`${dbUrl}/${roomPass}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            // ルームの初期データ（プレイヤー1が参加、お互いの高さは0）
-            body: JSON.stringify({
-                p1_connected: true,
-                p2_connected: false,
-                p1_height: 0,
-                p2_height: 0,
-                status: "waiting"
-            })
-        });
-
+        // まず、その合言葉の部屋（データ）がすでにあるか確認するために GET します
+        const response = await fetch(targetUrl);
+        
         if (!response.ok) {
-            throw new Error("サーバーの応答が良くないみたいです");
+            throw new Error("部屋が見つかりません。合言葉が違うかも？");
         }
 
-        const data = await response.json();
+        const roomData = await response.json();
+
+        // すでに2人とも埋まっていたら入れない
+        if (roomData.p2_connected) {
+            alertBox.textContent = "この部屋はすでに満員です！";
+            statusText.textContent = "入れませんでした。";
+            return;
+        }
+
+        // 自分が「後攻（player2）」として参加する
+        myRole = "p2";
+        roomData.p2_connected = true;
+        roomData.status = "playing"; // ゲーム開始状態にする
+
+        // データを更新するために PUT (または POST) でKVdbに書き戻す
+        await fetch(targetUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(roomData)
+        });
+
+        statusText.textContent = "部屋に入れました！ゲームを開始します。";
         
-        // 自分が「先攻（player1）」であることを保存
-        myRole = "p1"; 
-        
-        statusText.textContent = "部屋ができました！相手の参加を待っています...";
-        
-        // 画面をゲーム画面に切り替える処理や、相手を待つループ処理をここに続ける
-        // switchScreen("gameScreen"); など
+        // 画面を切り替えてゲームスタート
+        startGame(roomPass);
 
     } catch (error) {
         console.error(error);
-        alertBox.textContent = "エラーが発生しました。接続を確認してください。";
-        statusText.textContent = "作成に失敗しました。";
+        alertBox.textContent = "部屋が見つからないか、エラーが発生しました。";
+        statusText.textContent = "接続失敗。";
     }
+}
+
+// ================= 3. 相手が来るのを待つ監視ループ =================
+// createRoom() が成功したあとに、この関数を呼び出して相手を待ちます
+function waitForOpponent(roomPass) {
+    const statusText = document.getElementById("status");
+    
+    // 💡 確実にスラッシュを入れた正しいURL
+    const targetUrl = `https://kvdb.io/${bucketId}/${roomPass}`;
+
+    // 2秒ごとにKVdbのデータを見に行く
+    const intervalId = setInterval(async () => {
+        try {
+            const response = await fetch(targetUrl);
+            if (!response.ok) return;
+
+            const roomData = await response.json();
+
+            // 相手（p2）が接続してきたら
+            if (roomData.p2_connected) {
+                clearInterval(intervalId); // ループを止める
+                statusText.textContent = "対戦相手が来ました！ゲームを開始します。";
+                
+                // ゲームスタート処理へ
+                startGame(roomPass);
+            }
+        } catch (error) {
+            console.error("監視エラー:", error);
+        }
+    }, 2000); 
+}
+
+// 画面をゲーム画面に切り替える共通の関数（仮）
+function startGame(roomPass) {
+    document.getElementById("lobbyScreen").classList.remove("active");
+    document.getElementById("gameScreen").classList.add("active");
+    
+    // ここからタイピングの問題を出す処理や、お互いの高さを同期するループを開始する
+    // startSyncLoop(roomPass); など
 }
 
     </script>
