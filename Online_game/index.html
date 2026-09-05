@@ -1,385 +1,247 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>タワー・タイピング対戦</title>
-    <style>
-        .version-tag {
-            position: absolute; top: 10px; left: 10px;
-            font-size: 14px; color: #72767d; font-family: monospace;
-            z-index: 100;
-        }
-        body {
-            margin: 0; padding: 0; background-color: #23272a; color: #ffffff;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 100vh; overflow: hidden; position: relative;
-        }
-        .screen { display: none; text-align: center; width: 100%; max-width: 600px; }
-        .active { display: flex; flex-direction: column; align-items: center; }
-        .title-img { max-width: 90%; height: auto; margin-bottom: 20px; }
-        .input-container { margin-bottom: 10px; }
-        #roomPass {
-            font-size: 20px; padding: 12px 20px; width: 280px;
-            border: 3px solid #6c757d; border-radius: 12px;
-            background-color: #2f3136; color: #fff; text-align: center; outline: none;
-        }
-        .alert-message { color: #ff8a65; font-size: 18px; font-weight: bold; margin-bottom: 20px; min-height: 24px; }
-        .button-container { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; }
-        .img-button { cursor: pointer; transition: transform 0.2s; width: 180px; height: 180px; object-fit: cover; border-radius: 50%; }
-        .img-button:hover { transform: translateY(-6px) scale(1.04); }
-        #status { margin-top: 45px; font-size: 20px; font-weight: bold; color: #e9ecef; padding: 10px 20px; background-color: rgba(0,0,0,0.2); border-radius: 20px; }
-        .tower-battlefield {
-            display: flex; justify-content: space-between; align-items: flex-end;
-            width: 100%; max-width: 550px; height: 350px; margin-bottom: 30px;
-            background-color: rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 20px; box-sizing: border-box;
-        }
-        .tower-container { display: flex; flex-direction: column; align-items: center; width: 40%; height: 100%; }
-        .player-name { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
-        .tower-visual {
-            width: 60px; height: 180px; background-color: #1a1c1e; border-radius: 8px;
-            position: relative; overflow: hidden; border: 2px solid #4f545c; display: flex; align-items: flex-end;
-        }
-        .tower-floor { width: 100%; transition: height 0.3s ease-out; }
-        .my-side .tower-floor { background: linear-gradient(to top, #76b813, #a3e635); box-shadow: 0 0 10px #a3e635; }
-        .rival-side .tower-floor { background: linear-gradient(to top, #d85d32, #ff8a65); box-shadow: 0 0 10px #ff8a65; }
-        .tower-stats { margin-top: 10px; text-align: center; }
-        .height-val { font-size: 36px; font-weight: bold; color: #ffd8b3; }
-        .floor-status { font-size: 16px; color: #aaa; }
-        .vs-divider { font-size: 28px; font-weight: bold; color: #ff4757; align-self: center; text-shadow: 0 0 8px rgba(255, 71, 87, 0.6); }
-        .typing-area { width: 100%; max-width: 500px; }
-        .word-display { font-size: 38px; background: #2f3136; padding: 15px 25px; border-radius: 12px; letter-spacing: 2px; border: 2px solid #4f545c; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
-        .typed-word { color: #555; }
-        .guide-text { color: #b9bbbe; font-size: 14px; margin-top: 10px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タワー・タイピング対戦</title>
+
+<style>
+    .version-tag {
+        position: absolute; top: 10px; left: 10px;
+        font-size: 14px; color: #72767d; font-family: monospace;
+        z-index: 100;
+    }
+    body {
+        margin: 0; padding: 0; background-color: #23272a; color: #ffffff;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        min-height: 100vh; overflow: hidden; position: relative;
+    }
+    .screen { display: none; text-align: center; width: 100%; max-width: 600px; }
+    .active { display: flex; flex-direction: column; align-items: center; }
+    .title-img { max-width: 90%; height: auto; margin-bottom: 20px; }
+    #roomPass {
+        font-size: 20px; padding: 12px 20px; width: 280px;
+        border: 3px solid #6c757d; border-radius: 12px;
+        background-color: #2f3136; color: #fff; text-align: center; outline: none;
+    }
+    .alert-message { color: #ff8a65; font-size: 18px; font-weight: bold; margin-bottom: 20px; min-height: 24px; }
+    .img-button { cursor: pointer; transition: transform 0.2s; width: 180px; height: 180px; object-fit: cover; border-radius: 50%; }
+    .img-button:hover { transform: translateY(-6px) scale(1.04); }
+    #status { margin-top: 45px; font-size: 20px; font-weight: bold; color: #e9ecef; padding: 10px 20px; background-color: rgba(0,0,0,0.2); border-radius: 20px; }
+
+    .tower-battlefield {
+        display: flex; justify-content: space-between; align-items: flex-end;
+        width: 100%; max-width: 550px; height: 350px; margin-bottom: 30px;
+        background-color: rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 20px; box-sizing: border-box;
+    }
+    .tower-container { display: flex; flex-direction: column; align-items: center; width: 40%; height: 100%; }
+    .tower-visual {
+        width: 60px; height: 180px; background-color: #1a1c1e; border-radius: 8px;
+        position: relative; overflow: hidden; border: 2px solid #4f545c; display: flex; align-items: flex-end;
+    }
+    .tower-floor { width: 100%; transition: height 0.3s ease-out; }
+    .my-side .tower-floor { background: linear-gradient(to top, #76b813, #a3e635); }
+    .rival-side .tower-floor { background: linear-gradient(to top, #d85d32, #ff8a65); }
+
+    .word-display {
+        font-size: 38px; background: #2f3136; padding: 15px 25px;
+        border-radius: 12px; letter-spacing: 2px; border: 2px solid #4f545c;
+    }
+    .typed-word { color: #555; }
+</style>
 </head>
+
 <body>
-    <div class="version-tag">Ver.1.3 → 2.0-dev</div>
+<div class="version-tag">Ver.2.0 Firebase</div>
 
-    <div id="lobbyScreen" class="screen active">
-        <img src="title.jpg" alt="友人とタイピングゲーム!!!" class="title-img">
-        <div class="input-container">
-            <input type="text" id="roomPass" placeholder="合言葉をにゅうりょく">
-        </div>
-        <div id="alertBox" class="alert-message"></div>
-        <div class="button-container">
-            <img src="enter_room.jpg" alt="この合言葉で部屋に入る" class="img-button" onclick="joinOrCreateRoom()">
-        </div>
-        <p id="status">合言葉を入れて、ボタンを押してね</p>
-    </div>
+<!-- ロビー画面 -->
+<div id="lobbyScreen" class="screen active">
+    <img src="title.jpg" class="title-img">
+    <input type="text" id="roomPass" placeholder="合言葉を入力">
+    <div id="alertBox" class="alert-message"></div>
+    <img src="enter_room.jpg" class="img-button" onclick="joinRoom()">
+    <p id="status">合言葉を入れて、ボタンを押してね</p>
+</div>
 
-    <div id="gameScreen" class="screen">
-        <div class="tower-battlefield">
-            <div class="tower-container my-side">
-                <div class="player-name">あなた</div>
-                <div class="tower-visual"><div class="tower-floor" id="myTowerFloor" style="height: 0%;"></div></div>
-                <div class="tower-stats">
-                    <div class="height-val" id="myHeight">0 cm</div>
-                    <div class="floor-status" id="myFloor">地上 0階</div>
-                </div>
-            </div>
-            <div class="vs-divider">VS</div>
-            <div class="tower-container rival-side">
-                <div class="player-name">あいて</div>
-                <div class="tower-visual"><div class="tower-floor" id="rivalTowerFloor" style="height: 0%;"></div></div>
-                <div class="tower-stats">
-                    <div class="height-val" id="rivalHeight">0 cm</div>
-                    <div class="floor-status" id="rivalFloor">地上 0階</div>
-                </div>
-            </div>
+<!-- ゲーム画面 -->
+<div id="gameScreen" class="screen">
+    <div class="tower-battlefield">
+        <div class="tower-container my-side">
+            <div class="tower-visual"><div class="tower-floor" id="myTower"></div></div>
+            <div id="myHeight">0 cm</div>
         </div>
-        <div class="typing-area">
-            <div class="word-display" id="wordBox">
-                <span class="typed-word" id="typedPart"></span><span id="untypedPart">loading...</span>
-            </div>
-            <p class="guide-text">キーボードで半角英字をうってね！</p>
+        <div class="tower-container rival-side">
+            <div class="tower-visual"><div class="tower-floor" id="rivalTower"></div></div>
+            <div id="rivalHeight">0 cm</div>
         </div>
     </div>
 
-    <script>
-        const bucketId = "2xcn6tqD6mMCcVn5WB8vVf";
+    <div class="word-display">
+        <span id="typedPart" class="typed-word"></span>
+        <span id="untypedPart"></span>
+    </div>
+</div>
 
-        let myRole = "";          // "p1" or "p2"
-        let activeRoomPass = "";  // 合言葉
-        let pollIntervalId = null;
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-        // --- タイピング用変数 ---
-        const wordList = [
-            "tower", "battle", "typing", "friend", "online",
-            "rocket", "castle", "future", "coding", "keyboard"
-        ];
-        let currentWord = "";
-        let typedIndex = 0;
+<script>
+// -------------------- Firebase設定 --------------------
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "XXXX",
+    appId: "XXXX"
+};
 
-        let myHeightVal = 0;      // cm
-        let rivalHeightVal = 0;   // cm
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-        window.onload = function() {
-            const params = new URLSearchParams(window.location.search);
-            const roomParam = params.get('room') || params.get('password');
-            if (roomParam) {
-                document.getElementById("roomPass").value = roomParam;
-                document.getElementById("status").textContent = "URLから合言葉を読み込みました！";
-            }
-        };
+// -------------------- 変数 --------------------
+let myRole = "";
+let roomKey = "";
+let currentWord = "";
+let typedIndex = 0;
+let myHeight = 0;
+let rivalHeight = 0;
 
-        // ★ 本物の POST 通信
-        async function sendKvdbData(encodedPass, dataObj) {
-            await fetch(`https://kvdb.io/${bucketId}/${encodedPass}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(dataObj)
-            });
+const words = ["tower","battle","typing","rocket","castle","future","coding","keyboard"];
+
+// -------------------- ロビー処理 --------------------
+async function joinRoom() {
+    const pass = document.getElementById("roomPass").value.trim();
+    if (!pass) return;
+
+    roomKey = pass;
+
+    const ref = db.ref("rooms/" + roomKey);
+    const snapshot = await ref.get();
+
+    if (!snapshot.exists()) {
+        // 新規部屋作成
+        myRole = "p1";
+        currentWord = pickWord();
+
+        await ref.set({
+            p1_connected: true,
+            p2_connected: false,
+            p1_height: 0,
+            p2_height: 0,
+            current_word: currentWord
+        });
+
+        waitForP2();
+    } else {
+        const data = snapshot.val();
+        if (data.p2_connected) {
+            alert("満員です！");
+            return;
         }
 
-        async function joinOrCreateRoom() {
-            const roomPass = document.getElementById("roomPass").value.trim();
-            const alertBox = document.getElementById("alertBox");
-            const statusText = document.getElementById("status");
+        myRole = "p2";
+        await ref.update({ p2_connected: true });
+        startGame();
+    }
+}
 
-            if (!roomPass) {
-                alertBox.textContent = "合言葉を入力してください！";
-                return;
-            }
+// -------------------- p2待ち --------------------
+function waitForP2() {
+    const ref = db.ref("rooms/" + roomKey + "/p2_connected");
+    ref.on("value", snap => {
+        if (snap.val() === true) startGame();
+    });
+}
 
-            alertBox.textContent = "";
-            statusText.textContent = "部屋に接続中...";
+// -------------------- ゲーム開始 --------------------
+function startGame() {
+    document.getElementById("lobbyScreen").classList.remove("active");
+    document.getElementById("gameScreen").classList.add("active");
 
-            const encodedPass = encodeURIComponent(roomPass);
-            const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
+    const ref = db.ref("rooms/" + roomKey);
 
-            try {
-                const response = await fetch(targetUrl, {
-                    headers: { "Accept": "application/json" }
-                });
+    // リアルタイム同期
+    ref.on("value", snap => {
+        const data = snap.val();
+        if (!data) return;
 
-                if (response.status === 404) {
-                    // 新規部屋作成（p1）
-                    statusText.textContent = "新しい部屋を作成しています...";
-                    const initialWord = pickRandomWord();
+        currentWord = data.current_word;
+        renderWord();
 
-                    await sendKvdbData(encodedPass, {
-                        p1_connected: true,
-                        p2_connected: false,
-                        p1_height: 0,
-                        p2_height: 0,
-                        current_word: initialWord,
-                        status: "waiting"
-                    });
-
-                    myRole = "p1";
-                    activeRoomPass = roomPass;
-                    statusText.textContent = "部屋ができました！相手の参加を待っています...";
-                    waitForOpponent(encodedPass);
-                } else if (response.ok) {
-                    const roomData = await response.json();
-
-                    if (roomData.p2_connected) {
-                        alertBox.textContent = "この部屋はすでに満員です！";
-                        statusText.textContent = "入れませんでした。";
-                        return;
-                    }
-
-                    // 既存部屋に参加（p2）
-                    myRole = "p2";
-                    activeRoomPass = roomPass;
-
-                    roomData.p2_connected = true;
-                    roomData.status = "playing";
-
-                    await sendKvdbData(encodedPass, roomData);
-
-                    statusText.textContent = "部屋に入れました！ゲームを開始します。";
-                    startGame(roomData);
-                } else {
-                    throw new Error("通信エラー");
-                }
-            } catch (error) {
-                console.error(error);
-                alertBox.textContent = "エラーが発生しました。合言葉を変えてみてください。";
-                statusText.textContent = "接続失敗。";
-            }
+        if (myRole === "p1") {
+            myHeight = data.p1_height;
+            rivalHeight = data.p2_height;
+        } else {
+            myHeight = data.p2_height;
+            rivalHeight = data.p1_height;
         }
 
-        function waitForOpponent(encodedPass) {
-            const statusText = document.getElementById("status");
-            const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
+        updateTowers();
+    });
 
-            const intervalId = setInterval(async () => {
-                try {
-                    const response = await fetch(targetUrl, {
-                        headers: { "Accept": "application/json" }
-                    });
-                    if (!response.ok) return;
+    window.addEventListener("keydown", onKey);
+}
 
-                    const roomData = await response.json();
-                    if (roomData.p2_connected) {
-                        clearInterval(intervalId);
-                        statusText.textContent = "対戦相手が来ました！ゲームを開始します。";
-                        startGame(roomData);
-                    }
-                } catch (error) {
-                    console.error("監視エラー:", error);
-                }
-            }, 2000);
+// -------------------- タイピング処理 --------------------
+function onKey(e) {
+    if (!/^[a-zA-Z]$/.test(e.key)) return;
+
+    const expected = currentWord[typedIndex];
+    if (e.key.toLowerCase() === expected.toLowerCase()) {
+        typedIndex++;
+        renderWord();
+
+        if (typedIndex >= currentWord.length) {
+            onWordComplete();
         }
+    }
+}
 
-        // --- ゲーム開始 ---
-        function startGame(roomData) {
-            document.getElementById("lobbyScreen").classList.remove("active");
-            document.getElementById("gameScreen").classList.add("active");
+async function onWordComplete() {
+    typedIndex = 0;
+    currentWord = pickWord();
 
-            // 高さ初期化
-            myHeightVal   = (myRole === "p1") ? roomData.p1_height : roomData.p2_height;
-            rivalHeightVal = (myRole === "p1") ? roomData.p2_height : roomData.p1_height;
-            updateTowerVisuals();
+    const ref = db.ref("rooms/" + roomKey);
 
-            // 単語初期化
-            currentWord = roomData.current_word || pickRandomWord();
-            typedIndex = 0;
-            renderWord();
+    if (myRole === "p1") {
+        myHeight += 10;
+        await ref.update({
+            p1_height: myHeight,
+            current_word: currentWord
+        });
+    } else {
+        myHeight += 10;
+        await ref.update({
+            p2_height: myHeight,
+            current_word: currentWord
+        });
+    }
+}
 
-            // キーボードイベント登録
-            window.addEventListener("keydown", handleKeydown);
+// -------------------- 表示更新 --------------------
+function renderWord() {
+    document.getElementById("typedPart").textContent = currentWord.slice(0, typedIndex);
+    document.getElementById("untypedPart").textContent = currentWord.slice(typedIndex);
+}
 
-            // 相手の状態をポーリング
-            const encodedPass = encodeURIComponent(activeRoomPass);
-            startPolling(encodedPass);
-        }
+function updateTowers() {
+    const myPercent = Math.min(100, myHeight / 2);
+    const rivalPercent = Math.min(100, rivalHeight / 2);
 
-        // --- 単語関連 ---
-        function pickRandomWord() {
-            const idx = Math.floor(Math.random() * wordList.length);
-            return wordList[idx];
-        }
+    document.getElementById("myTower").style.height = myPercent + "%";
+    document.getElementById("rivalTower").style.height = rivalPercent + "%";
 
-        function renderWord() {
-            const typedPart = currentWord.slice(0, typedIndex);
-            const untypedPart = currentWord.slice(typedIndex);
+    document.getElementById("myHeight").textContent = myHeight + " cm";
+    document.getElementById("rivalHeight").textContent = rivalHeight + " cm";
+}
 
-            document.getElementById("typedPart").textContent = typedPart;
-            document.getElementById("untypedPart").textContent = untypedPart;
-        }
-
-        function handleKeydown(e) {
-            const key = e.key;
-
-            // 半角英字のみ
-            if (!/^[a-zA-Z]$/.test(key)) return;
-
-            const expectedChar = currentWord[typedIndex];
-            if (!expectedChar) return;
-
-            if (key.toLowerCase() === expectedChar.toLowerCase()) {
-                typedIndex++;
-                renderWord();
-
-                // 単語を全部打ち終わったらタワー成長
-                if (typedIndex >= currentWord.length) {
-                    onWordCompleted();
-                }
-            }
-        }
-
-        async function onWordCompleted() {
-            // 自分のタワーを伸ばす（例：1単語 = 10cm）
-            myHeightVal += 10;
-            updateTowerVisuals();
-
-            // 新しい単語を生成
-            currentWord = pickRandomWord();
-            typedIndex = 0;
-            renderWord();
-
-            // サーバーに同期
-            const encodedPass = encodeURIComponent(activeRoomPass);
-            const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
-
-            try {
-                const response = await fetch(targetUrl, {
-                    headers: { "Accept": "application/json" }
-                });
-                if (!response.ok) return;
-
-                const roomData = await response.json();
-
-                if (myRole === "p1") {
-                    roomData.p1_height = myHeightVal;
-                } else {
-                    roomData.p2_height = myHeightVal;
-                }
-                roomData.current_word = currentWord;
-
-                await sendKvdbData(encodedPass, roomData);
-            } catch (error) {
-                console.error("同期エラー:", error);
-            }
-        }
-
-        // --- タワー表示更新 ---
-        function updateTowerVisuals() {
-            const myTowerFloor = document.getElementById("myTowerFloor");
-            const rivalTowerFloor = document.getElementById("rivalTowerFloor");
-            const myHeightText = document.getElementById("myHeight");
-            const rivalHeightText = document.getElementById("rivalHeight");
-            const myFloorText = document.getElementById("myFloor");
-            const rivalFloorText = document.getElementById("rivalFloor");
-
-            // 高さを 0〜100% にマッピング（例：最大200cmで100%）
-            const maxCm = 200;
-            const myPercent = Math.min(100, (myHeightVal / maxCm) * 100);
-            const rivalPercent = Math.min(100, (rivalHeightVal / maxCm) * 100);
-
-            myTowerFloor.style.height = `${myPercent}%`;
-            rivalTowerFloor.style.height = `${rivalPercent}%`;
-
-            myHeightText.textContent = `${myHeightVal} cm`;
-            rivalHeightText.textContent = `${rivalHeightVal} cm`;
-
-            const myFloor = Math.floor(myHeightVal / 10);
-            const rivalFloor = Math.floor(rivalHeightVal / 10);
-
-            myFloorText.textContent = `地上 ${myFloor}階`;
-            rivalFloorText.textContent = `地上 ${rivalFloor}階`;
-        }
-
-        // --- 相手の状態ポーリング ---
-        function startPolling(encodedPass) {
-            const targetUrl = `https://kvdb.io/${bucketId}/${encodedPass}`;
-
-            if (pollIntervalId) clearInterval(pollIntervalId);
-
-            pollIntervalId = setInterval(async () => {
-                try {
-                    const response = await fetch(targetUrl, {
-                        headers: { "Accept": "application/json" }
-                    });
-                    if (!response.ok) return;
-
-                    const roomData = await response.json();
-
-                    // 相手の高さを更新
-                    if (myRole === "p1") {
-                        rivalHeightVal = roomData.p2_height;
-                    } else {
-                        rivalHeightVal = roomData.p1_height;
-                    }
-                    updateTowerVisuals();
-
-                    // 単語が変わっていたら更新（p2が後から入ったときなど）
-                    if (roomData.current_word && roomData.current_word !== currentWord) {
-                        currentWord = roomData.current_word;
-                        typedIndex = 0;
-                        renderWord();
-                    }
-                } catch (error) {
-                    console.error("ポーリングエラー:", error);
-                }
-            }, 1000);
-        }
-    </script>
+function pickWord() {
+    return words[Math.floor(Math.random() * words.length)];
+}
+</script>
 </body>
 </html>
