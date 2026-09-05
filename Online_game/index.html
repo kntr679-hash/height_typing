@@ -73,165 +73,65 @@
         <p>キーボードで文字をうってね！</p>
     </div>
     <script>
-        // 💡 あなたが用意してくれた新しい金庫のURLをセットしました！
-        const dbUrl = "https://kvdb.io"; 
+ // 1. あなたのバケットID（金庫のID）をここにセットしてください
+const bucketId = "ここにあなたのバケットIDを入れる"; 
+
+// 2. 基本となるURL（最後にスラッシュを入れておきます）
+const dbUrl = `https://kvdb.io{bucketId}`; 
+
+// ================= 部屋を作る関数 =================
+async function createRoom() {
+    const roomPass = document.getElementById("roomPass").value.trim();
+    const alertBox = document.getElementById("alertBox");
+    const statusText = document.getElementById("status");
+
+    // 合言葉（パスワード）が空っぽなら警告して止める
+    if (!roomPass) {
+        alertBox.textContent = "合言葉を入力してください！";
+        return;
+    }
+    alertBox.textContent = ""; // 警告をクリア
+    statusText.textContent = "部屋を作成中...";
+
+    try {
+        // 💡 エラーの原因だったURLの組み立てを修正！
+        // https://kvdb.io というURLになります
+        const response = await fetch(`${dbUrl}/${roomPass}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            // ルームの初期データ（プレイヤー1が参加、お互いの高さは0）
+            body: JSON.stringify({
+                p1_connected: true,
+                p2_connected: false,
+                p1_height: 0,
+                p2_height: 0,
+                status: "waiting"
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error("サーバーの応答が良くないみたいです");
+        }
+
+        const data = await response.json();
         
-        const wordList = ["apple", "banana", "cherry", "grape", "orange", "lemon", "melon", "peach"];
-        let currentWord = "";
-        let typedIndex = 0;
+        // 自分が「先攻（player1）」であることを保存
+        myRole = "p1"; 
         
-        let myRole = "";       
-        let myHeightNum = 0;
-        let rivalHeightNum = 0;
-        let roomKey = "";      
-        let loopInterval = null;
+        statusText.textContent = "部屋ができました！相手の参加を待っています...";
+        
+        // 画面をゲーム画面に切り替える処理や、相手を待つループ処理をここに続ける
+        // switchScreen("gameScreen"); など
 
-        // 1. 部屋を作る（プレイヤー1になる）
-        async function createRoom() {
-            const pass = document.getElementById("roomPass").value;
-            if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
-            
-            roomKey = encodeURIComponent(pass);
-            const fullUrl = dbUrl + roomKey; // 1文字ずつ綺麗に繋ぎます！
-            
-            myRole = "p1";
-            document.getElementById("status").innerText = "部屋を作って相手を待っています...";
-            
-            const startData = { p1: 0, p2: 0, status: "waiting" };
-            await fetch(fullUrl, {
-                method: "POST",
-                body: JSON.stringify(startData)
-            });
+    } catch (error) {
+        console.error(error);
+        alertBox.textContent = "エラーが発生しました。接続を確認してください。";
+        statusText.textContent = "作成に失敗しました。";
+    }
+}
 
-            if(loopInterval) clearInterval(loopInterval);
-            loopInterval = setInterval(checkRivalJoin, 1000);
-        }
-
-        async function checkRivalJoin() {
-            try {
-                const fullUrl = dbUrl + roomKey;
-                const res = await fetch(fullUrl);
-                if(!res.ok) return; 
-                const data = await res.json();
-                
-                if(data.status === "playing") {
-                    clearInterval(loopInterval); 
-                    startGame();
-                }
-            } catch(e) { console.log(e); }
-        }
-
-        // 2. 部屋に入る（プレイヤー2になる）
-        async function joinRoom() {
-            const pass = document.getElementById("roomPass").value;
-            if(!pass) { document.getElementById("alertBox").innerText = "⚠ 合言葉を入れてね！"; return; }
-            
-            roomKey = encodeURIComponent(pass);
-            const fullUrl = dbUrl + roomKey;
-            myRole = "p2";
-
-            document.getElementById("status").innerText = "部屋を探して入っています...";
-
-            try {
-                const res = await fetch(fullUrl);
-                
-                if(!res.ok) {
-                    const startData = { p1: 0, p2: 0, status: "playing" };
-                    await fetch(fullUrl, { method: "POST", body: JSON.stringify(startData) });
-                    startGame();
-                    return;
-                }
-
-                const data = await res.json();
-                if(data.status === "waiting" || data.status === "playing") {
-                    data.status = "playing";
-                    await fetch(fullUrl, { method: "POST", body: JSON.stringify(data) });
-                    startGame();
-                } else {
-                    document.getElementById("status").innerText = "その部屋は満員です。別の合言葉にしてください。";
-                }
-            } catch(e) {
-                document.getElementById("status").innerText = "通信エラーが発生しました。";
-            }
-        }
-
-        function startGame() {
-            document.getElementById("lobbyScreen").classList.remove("active");
-            document.getElementById("gameScreen").classList.add("active");
-            nextWord();
-            window.addEventListener("keydown", checkInput);
-            
-            if(loopInterval) clearInterval(loopInterval);
-            loopInterval = setInterval(syncGameData, 500);
-        }
-
-        async function syncGameData() {
-            try {
-                const fullUrl = dbUrl + roomKey;
-                const res = await fetch(fullUrl);
-                if(!res.ok) return;
-                const data = await res.json();
-
-                if(myRole === "p1") {
-                    rivalHeightNum = data.p2 || 0;
-                } else {
-                    rivalHeightNum = data.p1 || 0;
-                }
-                updateDisplay(false); 
-
-                data[myRole] = myHeightNum;
-                await fetch(fullUrl, { method: "POST", body: JSON.stringify(data) });
-            } catch(e) { console.log(e); }
-        }
-
-        function nextWord() {
-            currentWord = wordList[Math.floor(Math.random() * wordList.length)];
-            typedIndex = 0;
-            updateWordDisplay();
-        }
-
-        function updateWordDisplay() {
-            const wordBox = document.getElementById("wordBox");
-            const typed = currentWord.substring(0, typedIndex);
-            const untyped = currentWord.substring(typedIndex);
-            wordBox.innerHTML = `<span class="typed-word">${typed}</span>${untyped}`;
-        }
-
-        function checkInput(e) {
-            if (e.key.length !== 1) return;
-            if (e.key === currentWord[typedIndex]) {
-                typedIndex++;
-                if (typedIndex >= currentWord.length) {
-                    myHeightNum += 10; updateDisplay(true); nextWord();
-                } else { updateWordDisplay(); }
-            } else {
-                myHeightNum -= 30; updateDisplay(true); typedIndex = 0; updateWordDisplay();
-            }
-        }
-
-        function updateDisplay(isMyData) {
-            if(isMyData) {
-                document.getElementById("myHeight").innerText = myHeightNum + " cm";
-                const myFloor = document.getElementById("myFloor");
-                if (myHeightNum >= 0) {
-                    myFloor.innerText = `地上 ${Math.floor(myHeightNum / 300)} 階`;
-                    myFloor.style.color = "#a3e635";
-                } else {
-                    myFloor.innerText = `地下 ${Math.floor(Math.abs(myHeightNum) / 300) + 1} 階 🕳️`;
-                    myFloor.style.color = "#f87171";
-                }
-            } else {
-                document.getElementById("rivalHeight").innerText = rivalHeightNum + " cm";
-                const rivalFloor = document.getElementById("rivalFloor");
-                if (rivalHeightNum >= 0) {
-                    rivalFloor.innerText = `地上 ${Math.floor(rivalHeightNum / 300)} 階`;
-                    rivalFloor.style.color = "#a3e635";
-                } else {
-                    rivalFloor.innerText = `地下 ${Math.floor(Math.abs(rivalHeightNum) / 300) + 1} 階 🕳️`;
-                    rivalFloor.style.color = "#f87171";
-                }
-            }
-        }
     </script>
 </body>
 </html>
